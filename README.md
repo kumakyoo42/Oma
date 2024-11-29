@@ -52,9 +52,9 @@ of memory used. E.g. `-Xmx3G` to use 3 giga bytes of memory.
 
 To build `oma.jar` on your own, on Linux systems you can use
 `build.sh`. I havn't tested building on other operating systems.
-Basically you need to compile the java files in folder `de/kumakyoo`
-and build a jar file from the resulting class files, including the two
-`default.*`-files and the manifest file.
+Basically you need to compile the java files in folder
+`de/kumakyoo/oma` and build a jar file from the resulting class files,
+including the two `default.*`-files and the manifest file.
 
 ## Known bugs
 
