@@ -1,2 +1,2 @@
 Manifest-Version: 1.0
-Main-Class: de.kumakyoo.Oma
+Main-Class: de.kumakyoo.oma.Oma

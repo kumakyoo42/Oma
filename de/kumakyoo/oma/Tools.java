@@ -1,4 +1,4 @@
-package de.kumakyoo;
+package de.kumakyoo.oma;
 
 import java.util.Arrays;
 import java.nio.file.*;

@@ -1,4 +1,4 @@
-package de.kumakyoo;
+package de.kumakyoo.oma;
 
 public class Member
 {

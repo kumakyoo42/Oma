@@ -1,4 +1,4 @@
-package de.kumakyoo;
+package de.kumakyoo.oma;
 
 import java.io.IOException;
 import java.nio.file.*;
