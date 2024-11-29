@@ -7,7 +7,7 @@ software may change too.**
 Having said this: To make things more stable, feedback is needed. Any
 help will be appreciated. :-)
 
-More information on oma file format is coming soon. Please be patient.
+More information on *oma file format* is coming soon. Please be patient.
 
 ## Install
 
@@ -44,9 +44,9 @@ inputfile is used with extension replaced by `.oma`.
 
 ### Java-Options
 
-Java Virtual Machine knows a lot of options. For Oma you need probably
-one one of them: `-Xmx<size>` to indicate the maximum amount of memory
-used. E.g. `-Xmx3G` to use 3 giga bytes of memory.
+The Java Virtual Machine knows a lot of options. For Oma you need
+probably only one of them: `-Xmx<size>` to indicate the maximum amount
+of memory used. E.g. `-Xmx3G` to use 3 giga bytes of memory.
 
 ## Build
 
@@ -54,7 +54,7 @@ To build `oma.jar` on your own, on Linux systems you can use
 `build.sh`. I havn't tested building on other operating systems.
 Basically you need to compile the java files in folder `de/kumakyoo`
 and build a jar file from the resulting class files, including the two
-default.*-files and the manifest file.
+`default.*`-files and the manifest file.
 
 ## Known bugs
 
