@@ -141,7 +141,7 @@ public class Oma
             System.err.println("Error: "+error);
             System.err.println();
         }
-        System.err.println("Usage: java Oma [options] <input file> [<output file>]");
+        System.err.println("Usage: java -jar oma.jar [options] <input file> [<output file>]");
         System.err.println();
         System.err.println("Options:");
         System.err.println("  -b <bbs-file>  bbs-file; default: default.bbs");
