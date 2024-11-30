@@ -31,8 +31,8 @@ extension replaced by `.oma`.
 
 ### Options
 
-    -b <bbs-file>  bbs-file; default: [default.bbs](/default.bbs)
-    -t <bbs-file>  type-file; default: [default.type](/default.type)
+    -b <bbs-file>  bbs-file; default: default.bbs
+    -t <bbs-file>  type-file; default: default.type
     -p <list>      data to preserve (id,version,timestamp,changeset,user,
                                      all,none); default: none
     -nz            do not zip chunks
