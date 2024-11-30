@@ -1,17 +1,13 @@
 # Oma - a converter from OSM data to OMA file format
 
-**Warning: The oma file format is still considered experimental and
-may be subject to change without warning. For this reason this
-software may change too.**
-
-Having said this: To make things more stable, feedback is needed. Any
-help will be appreciated. :-)
-
-More information on *oma file format* is coming soon. Please be patient.
+***Note: Oma software (including additional programs like
+[Opa](https://github.com/kumakyoo42/Opa) and libraries) and [related
+file formats](https://github.com/kumakyoo42/oma-file-formats) are
+currently experimental and subject to change without notice.***
 
 ## Install
 
-Download [oma.jar](/oma.jar) and make sure that Java Runtime
+Download [oma.jar](/oma.jar) and make sure that a Java Runtime
 Environment (JRE) is available on your system.
 
 ## Usage
@@ -20,18 +16,23 @@ Environment (JRE) is available on your system.
 
 ### Input file
 
-The input has to be in one of the following three formats: OSM-file
-(`.osm.xml`), O5M-file (`.o5m`) or PBF-file (`.pbf`).
+The input file format has to be one of the following three:
+
+* [OSM XML format](https://wiki.openstreetmap.org/wiki/OSM_XML)
+* [O5M format](https://wiki.openstreetmap.org/wiki/O5m)
+* [PBF format](https://wiki.openstreetmap.org/wiki/PBF_Format)
 
 ### Output file
 
-The output is an oma file. If no filename is given, the name of the
-inputfile is used with extension replaced by `.oma`.
+The format of the output file is the [OMA
+format](https://github.com/kumakyoo42/oma-file-formats/blob/main/OMA.md).
+If no filename is provided, the name of the input file is used with
+extension replaced by `.oma`.
 
 ### Options
 
-    -b <bbs-file>  bbs-file; default: default.bbs
-    -t <bbs-file>  type-file; default: default.type
+    -b <bbs-file>  bbs-file; default: [default.bbs](/default.bbs)
+    -t <bbs-file>  type-file; default: [default.type](/default.type)
     -p <list>      data to preserve (id,version,timestamp,changeset,user,
                                      all,none); default: none
     -nz            do not zip chunks
@@ -44,20 +45,36 @@ inputfile is used with extension replaced by `.oma`.
 
 ### Java-Options
 
-The Java Virtual Machine knows a lot of options. For Oma you need
-probably only one of them: `-Xmx<size>` to indicate the maximum amount
-of memory used. E.g. `-Xmx3G` to use 3 giga bytes of memory.
+The Java Virtual Machine accepts a great many options. For Oma you
+need probably only one of them: `-Xmx<size>` to increase the amount of
+memory that can be used by the virtual machine. For example: Adding
+`-Xmx3G` enables the use of up to 3 giga bytes of main memory.
 
 ## Build
 
-To build `oma.jar` on your own, on Linux systems you can use
-`build.sh`. I havn't tested building on other operating systems.
-Basically you need to compile the java files in folder
+On Linux systems you can use the shell script `build.sh` to build
+`oma.jar` on your own.
+
+Building on other platforms is neither tested nor directly supported
+yet. Basically you need to compile the java files in folder
 `de/kumakyoo/oma` and build a jar file from the resulting class files,
 including the two `default.*`-files and the manifest file.
 
 ## Known bugs
 
-Currently I don't know of any bugs, but probably there are a lot of
-them. Especially the pbf reader is known to be incomplete, because I
-didn't find any pbf files with the missing features to test with...
+There are no known bugs, but some known flaws:
+
+* The PBF format reader is known to be incomplete. (I couldn't find
+any files containing the missing features, so I neither could test
+them nor did I need them.)
+
+* The application may crash due to memory shortage. This cannot be
+avoided when working with JAVA and large amounts of memory, as JAVA
+does not provide any means to make sure that memory allocation will
+work in advance. According to JAVA specs the virtual machine may break
+at any time with an OutOfMemoryError. Further more, there is no
+guarantee that garbage collection is invoked, even when explicitly
+requested by the software.
+
+* Due to this memory limitations, some temporary files are used, even
+when they would have fitted completely into main memory.
