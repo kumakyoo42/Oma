@@ -203,7 +203,7 @@ public class ChunkGenerator
                 saveChunk(i,type);
             }
         if (!Oma.silent)
-            System.err.print("Step 2:                                                                              \r");
+            System.err.print("Step 2:                                                                      \r");
 
         Tools.gc();
     }

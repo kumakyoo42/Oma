@@ -542,6 +542,8 @@ public class Reunify
 
         OmaInputStream in = OmaInputStream.init(original);
         out = OmaOutputStream.init(outfile,true);
+        if (!Oma.silent)
+            System.err.print("Step 1: copying          \r");
         out.copyFrom(in,node_end);
 
         byte type = 0;
@@ -661,7 +663,7 @@ public class Reunify
             }
         }
         if (!Oma.silent)
-            System.err.print("Step 1:                                                                              \r");
+            System.err.print("Step 1:                                                                      \r");
 
         in.release();
         out.close();
@@ -712,7 +714,7 @@ public class Reunify
             }
         }
         if (!Oma.silent)
-            System.err.print("Step 1:                                                                              \r");
+            System.err.print("Step 1:                                                                      \r");
 
         in.release();
         wos.close();
@@ -800,6 +802,8 @@ public class Reunify
 
         OmaInputStream in = OmaInputStream.init(out);
         out = OmaOutputStream.init(outfile,true);
+        if (!Oma.silent)
+            System.err.print("Step 1: copying          \r");
         out.copyFrom(in,way_end);
 
         byte type = 0;
@@ -927,7 +931,7 @@ public class Reunify
             }
         }
         if (!Oma.silent)
-            System.err.print("Step 1:                                                                              \r");
+            System.err.print("Step 1:                                                                      \r");
 
         in.release();
         out.close();
@@ -947,6 +951,8 @@ public class Reunify
 
         OmaInputStream in = OmaInputStream.init(out);
         out = OmaOutputStream.init(outfile,true);
+        if (!Oma.silent)
+            System.err.print("Step 1: copying          \r");
         out.copyFrom(in,way_end);
 
         long multi = 0;
@@ -1118,7 +1124,7 @@ public class Reunify
             }
         }
         if (!Oma.silent)
-            System.err.print("Step 1:                                                                              \r");
+            System.err.print("Step 1:                                                                      \r");
 
         in.release();
         out.close();

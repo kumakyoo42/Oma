@@ -228,7 +228,7 @@ public class TypeAnalysis
             reorganizeChunk(inChunks[i]);
         }
         if (!Oma.silent)
-            System.err.print("Step 3:                                                                              \r");
+            System.err.print("Step 3:                                                                      \r");
     }
 
     //////////////////////////////////////////////////////////////////
