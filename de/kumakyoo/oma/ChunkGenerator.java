@@ -158,6 +158,7 @@ public class ChunkGenerator
         out.writeByte('O');
         out.writeByte('M');
         out.writeByte('A');
+        out.writeByte(Oma.VERSION);
         features = Oma.zip_chunks?1:0;
         if (Oma.preserve_id) features += 2;
         if (Oma.preserve_version) features += 4;
@@ -412,7 +413,7 @@ public class ChunkGenerator
             chunk.bounds.write(out);
         }
 
-        out.setPosition(4);
+        out.setPosition(5);
         bb.write(out);
         out.writeLong(start);
     }

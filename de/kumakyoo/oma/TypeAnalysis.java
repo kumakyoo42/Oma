@@ -234,7 +234,7 @@ public class TypeAnalysis
 
     private void copyHeader() throws IOException
     {
-        for (int i=0;i<3;i++)
+        for (int i=0;i<4;i++)
             out.writeByte(in.readByte());
 
         features = in.readByte();
@@ -557,7 +557,7 @@ public class TypeAnalysis
         if (Oma.verbose>=3)
             System.out.println("      Filesize: "+Tools.humanReadable(out.getPosition()));
 
-        out.setPosition(20);
+        out.setPosition(21);
         out.writeLong(start);
     }
 }
