@@ -271,7 +271,7 @@ public class Reunify
     {
         nc++;
         if (!Oma.silent && nc%100000==0)
-            System.err.printf("Nodes: ~%.1f%%        \r",100.0/exp_nodes*nc);
+            System.err.printf("Step 1: nodes: ~%.1f%%        \r",100.0/exp_nodes*nc);
 
         if (nodes_c<nodes_id.length)
         {
@@ -321,7 +321,7 @@ public class Reunify
     {
         wc++;
         if (!Oma.silent && wc%10000==0)
-            System.err.printf("Ways: ~%.1f%%        \r",100.0/exp_ways*wc);
+            System.err.printf("Step 1: ways: ~%.1f%%        \r",100.0/exp_ways*wc);
 
         if (!all_nodes_read) endNodes();
 
@@ -365,7 +365,7 @@ public class Reunify
     {
         rc++;
         if (!Oma.silent && rc%1000==0)
-            System.err.printf("Relations: ~%.1f%%        \r",100.0/exp_rels*rc);
+            System.err.printf("Step 1: relations: ~%.1f%%        \r",100.0/exp_rels*rc);
 
         if (!all_nodes_read) endNodes();
         if (!all_ways_read) endWays();
@@ -551,7 +551,7 @@ public class Reunify
             if (!Oma.silent && ++c%100000==0)
             {
                 long sz = out.fileSize();
-                System.err.printf("Updating outfile: %.1f%%        \r",100.0/fs*sz);
+                System.err.printf("Step 1: updating nodes of outfile: %.1f%%        \r",100.0/fs*sz);
             }
 
             try {
@@ -661,7 +661,7 @@ public class Reunify
             }
         }
         if (!Oma.silent)
-            System.err.print("                                                                              \r");
+            System.err.print("Step 1:                                                                              \r");
 
         in.release();
         out.close();
@@ -684,7 +684,7 @@ public class Reunify
             if (!Oma.silent && ++c%100000==0)
             {
                 long sz = wos.fileSize();
-                System.err.printf("Updating ways: %.1f%%        \r",100.0/fs*sz);
+                System.err.printf("Step 1: updating nodes of wayfile: %.1f%%        \r",100.0/fs*sz);
             }
 
             try {
@@ -712,7 +712,7 @@ public class Reunify
             }
         }
         if (!Oma.silent)
-            System.err.print("                                                                              \r");
+            System.err.print("Step 1:                                                                              \r");
 
         in.release();
         wos.close();
@@ -809,7 +809,7 @@ public class Reunify
             if (!Oma.silent && ++c%100000==0)
             {
                 long sz = out.fileSize();
-                System.err.printf("Updating outfile: %.1f%%        \r",100.0/fs*sz);
+                System.err.printf("Step 1: updating ways of outfile: %.1f%%        \r",100.0/fs*sz);
             }
 
             try {
@@ -927,7 +927,7 @@ public class Reunify
             }
         }
         if (!Oma.silent)
-            System.err.print("                                                                              \r");
+            System.err.print("Step 1:                                                                              \r");
 
         in.release();
         out.close();
@@ -959,7 +959,7 @@ public class Reunify
             if (!Oma.silent && ++c%100000==0)
             {
                 long sz = out.fileSize();
-                System.err.printf("Converting: %.1f%%        \r",100.0/fs*sz);
+                System.err.printf("Step 1: converting multipolygons: %.1f%%        \r",100.0/fs*sz);
             }
 
             try {
@@ -1118,7 +1118,7 @@ public class Reunify
             }
         }
         if (!Oma.silent)
-            System.err.print("                                                                              \r");
+            System.err.print("Step 1:                                                                              \r");
 
         in.release();
         out.close();

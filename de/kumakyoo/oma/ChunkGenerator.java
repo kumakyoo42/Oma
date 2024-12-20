@@ -113,7 +113,7 @@ public class ChunkGenerator
         while (true)
         {
             if (!Oma.silent && ++c%100000==0)
-                System.err.printf("%.1f%%      \r",100.0/fs*in.getPosition());
+                System.err.printf("Step 2: %.1f%%      \r",100.0/fs*in.getPosition());
 
             try {
                 type = in.readByte();
@@ -138,7 +138,7 @@ public class ChunkGenerator
         }
         in.release();
         if (!Oma.silent)
-            System.err.print("                             \r");
+            System.err.print("Step 2:                             \r");
 
         saveChunks(last);
         writeChunkTable(bb);
@@ -199,11 +199,11 @@ public class ChunkGenerator
             if (count[i]>0)
             {
                 if (!Oma.silent)
-                    System.err.print("saving chunk "+(i+1)+"/"+cout.length+"    \r");
+                    System.err.print("Step 2: saving chunk "+(i+1)+"/"+cout.length+"    \r");
                 saveChunk(i,type);
             }
         if (!Oma.silent)
-            System.err.print("                                                                              \r");
+            System.err.print("Step 2:                                                                              \r");
 
         Tools.gc();
     }

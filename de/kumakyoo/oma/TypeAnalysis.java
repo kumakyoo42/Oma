@@ -224,10 +224,11 @@ public class TypeAnalysis
         for (int i=0;i<inChunks.length;i++)
         {
             if (!Oma.silent)
-                System.err.print("chunk: "+(i+1)+"/"+inChunks.length+"    \r");
+                System.err.print("Step 3: chunk: "+(i+1)+"/"+inChunks.length+"    \r");
             reorganizeChunk(inChunks[i]);
         }
-        System.err.print("                                                                              \r");
+        if (!Oma.silent)
+            System.err.print("Step 3:                                                                              \r");
     }
 
     //////////////////////////////////////////////////////////////////
