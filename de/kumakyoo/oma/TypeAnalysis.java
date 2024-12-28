@@ -205,6 +205,7 @@ public class TypeAnalysis
 
         in = OmaInputStream.init(infile);
         copyHeader();
+        addTypeHeader();
         readChunkTable();
         convertChunks();
         in.release();
@@ -244,6 +245,58 @@ public class TypeAnalysis
         for (int i=0;i<16;i++)
             out.writeByte(in.readByte());
         out.writeLong(0);
+    }
+
+    private void addTypeHeader() throws IOException
+    {
+        OmaOutputStream orig = out;
+
+        DeflaterOutputStream dos = null;
+        BufferedOutputStream bos = null;
+        if (Oma.zip_chunks)
+        {
+            dos = new DeflaterOutputStream(out, new Deflater(Deflater.BEST_COMPRESSION));
+            bos = new BufferedOutputStream(dos);
+            out = new OmaOutputStream(bos);
+        }
+
+        out.writeSmallInt(3);
+        out.writeByte('N');
+        out.writeSmallInt(nodeKeys.length);
+        for (int i=0;i<nodeKeys.length;i++)
+        {
+            out.writeString(nodeKeys[i]);
+            out.writeSmallInt(nodeValues[i].length);
+            for (int j=0;j<nodeValues[i].length;j++)
+                out.writeString(nodeValues[i][j]);
+        }
+
+        out.writeByte('W');
+        out.writeSmallInt(wayKeys.length);
+        for (int i=0;i<wayKeys.length;i++)
+        {
+            out.writeString(wayKeys[i]);
+            out.writeSmallInt(wayValues[i].length);
+            for (int j=0;j<wayValues[i].length;j++)
+                out.writeString(wayValues[i][j]);
+        }
+
+        out.writeByte('A');
+        out.writeSmallInt(wayKeys.length);
+        for (int i=0;i<wayKeys.length;i++)
+        {
+            out.writeString(wayKeys[i]);
+            out.writeSmallInt(areaValues[i].length);
+            for (int j=0;j<areaValues[i].length;j++)
+                out.writeString(areaValues[i][j]);
+        }
+
+        if (Oma.zip_chunks)
+        {
+            bos.flush();
+            dos.finish();
+            out = orig;
+        }
     }
 
     private void readChunkTable() throws IOException
