@@ -165,6 +165,7 @@ public class ChunkGenerator
         if (Oma.preserve_timestamp) features += 8;
         if (Oma.preserve_changeset) features += 16;
         if (Oma.preserve_user) features += 32;
+        if (Oma.one_element) features += 64;
         out.writeByte(features);
 
         // place holder for bounding box and position of chunktable

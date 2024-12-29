@@ -27,6 +27,7 @@ public class Oma
     static boolean preserve_user = false;
 
     static boolean zip_chunks = true;
+    static boolean one_element = false;
 
     static int verbose = 0;
     static boolean silent = false;
@@ -151,6 +152,7 @@ public class Oma
         System.err.println("  -p <list>      data to preserve (id,version,timestamp,changeset,user,");
         System.err.println("                                   all,none); default: none");
         System.err.println("  -0             do not zip chunks");
+        System.err.println("  -1             add each element only once");
         System.err.println("  -v             increase verboseness, can be used up to 4 times");
         System.err.println("  -s             silent mode: do not show any progress");
         System.err.println("  -tmp <dir>     directory to use for tmp files; default: default tmp directory");
@@ -174,6 +176,8 @@ public class Oma
                     silent = true;
                 else if (args[pos].equals("-0"))
                     zip_chunks = false;
+                else if (args[pos].equals("-1"))
+                    one_element = true;
                 else if (args[pos].equals("-b"))
                 {
                     if (pos==args.length-1) usage("missing filename after '-b'");

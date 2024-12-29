@@ -370,7 +370,7 @@ public class TypeAnalysis
 
         ElementWithID e = type=='N'?new Node(in,features):(type=='W'?new Way(in,features):new Area(in,features));
 
-        for (int j=0;j<keys.length;j++)
+        outer: for (int j=0;j<keys.length;j++)
             for (int k=0;k<lifeCyclePrefixes.length;k++)
                 if (e.tags.containsKey(lcpkey[j][k]))
                 {
@@ -380,6 +380,7 @@ public class TypeAnalysis
                     {
                         ((Way)e).write(splitout,features);
                         splitcount++;
+                        if (Oma.one_element) break outer;
                         break;
                     }
 
@@ -391,6 +392,7 @@ public class TypeAnalysis
                     }
                     block.get(j).add(split?new Area((Way)e):e);
                     empty = false;
+                    if (Oma.one_element) break outer;
                     break;
                 }
 

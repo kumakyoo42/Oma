@@ -36,6 +36,7 @@ extension replaced by `.oma`.
     -p <list>      data to preserve (id,version,timestamp,changeset,user,
                                      all,none); default: none
     -0             do not zip chunks
+    -1             add each element only once
     -v             increase verboseness, can be used up to 4 times
     -s             silent mode: do not show any progress
     -tmp <dir>     directory to use for tmp files; default: default tmp directory
