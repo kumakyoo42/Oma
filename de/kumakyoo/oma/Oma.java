@@ -150,7 +150,7 @@ public class Oma
         System.err.println("  -t <bbs-file>  type-file; default: default.type");
         System.err.println("  -p <list>      data to preserve (id,version,timestamp,changeset,user,");
         System.err.println("                                   all,none); default: none");
-        System.err.println("  -nz            do not zip chunks");
+        System.err.println("  -0             do not zip chunks");
         System.err.println("  -v             increase verboseness, can be used up to 4 times");
         System.err.println("  -s             silent mode: do not show any progress");
         System.err.println("  -tmp <dir>     directory to use for tmp files; default: default tmp directory");
@@ -172,7 +172,7 @@ public class Oma
                     verbose++;
                 else if (args[pos].equals("-s"))
                     silent = true;
-                else if (args[pos].equals("-nz"))
+                else if (args[pos].equals("-0"))
                     zip_chunks = false;
                 else if (args[pos].equals("-b"))
                 {

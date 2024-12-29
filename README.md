@@ -35,7 +35,7 @@ extension replaced by `.oma`.
     -t <bbs-file>  type-file; default: default.type
     -p <list>      data to preserve (id,version,timestamp,changeset,user,
                                      all,none); default: none
-    -nz            do not zip chunks
+    -0             do not zip chunks
     -v             increase verboseness, can be used up to 4 times
     -s             silent mode: do not show any progress
     -tmp <dir>     directory to use for tmp files; default: default tmp directory
