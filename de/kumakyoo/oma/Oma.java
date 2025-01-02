@@ -151,7 +151,7 @@ public class Oma
         System.err.println("  -t <bbs-file>  type-file; default: default.type");
         System.err.println("  -p <list>      data to preserve (id,version,timestamp,changeset,user,");
         System.err.println("                                   all,none); default: none");
-        System.err.println("  -0             do not zip chunks");
+        System.err.println("  -0             do not zip slices");
         System.err.println("  -1             add each element only once");
         System.err.println("  -v             increase verboseness, can be used up to 4 times");
         System.err.println("  -s             silent mode: do not show any progress");
