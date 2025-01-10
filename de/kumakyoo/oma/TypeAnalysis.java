@@ -398,14 +398,14 @@ public class TypeAnalysis
 
         if (!used)
         {
-            if (split)
+            if (split && !isArea((Way)e,-1))
             {
                 ((Way)e).write(splitout,features);
                 splitcount++;
             }
             else
             {
-                block.get(keys.length).add(e);
+                block.get(keys.length).add(split?new Area((Way)e):e);
                 empty = false;
             }
         }
@@ -438,6 +438,7 @@ public class TypeAnalysis
         String area = e.tags.get("area");
         if ("yes".equals(area)) return true;
         if ("no".equals(area)) return false;
+        if (j==-1) return false;
         return isArea[j] != (Arrays.asList(exceptions[j]).contains(e.tags.get(wayKeys[j])));
     }
 
