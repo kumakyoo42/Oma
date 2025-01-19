@@ -315,7 +315,35 @@ public class TypeAnalysis
     private void reorganizeChunk(Chunk c) throws IOException
     {
         in.setPosition(c.start);
-        analyseChunkOfType(in,c.type,c.type=='W',in.readInt(),c.bounds);
+        if (c.type=='C')
+            writeCollectionChunk(in,in.readInt(),c.bounds);
+        else
+            analyseChunkOfType(in,c.type,c.type=='W',in.readInt(),c.bounds);
+    }
+
+    private void writeCollectionChunk(OmaInputStream in, int count, Bounds b) throws IOException
+    {
+        outChunks.add(new Chunk(out.getPosition(),(byte)'C',b));
+
+        long startpos = out.getPosition();
+        out.writeInt(0); // Position der Sprungtabelle
+
+        List<ElementWithID> block = new ArrayList<>();
+
+        for (int i=0;i<count;i++)
+            block.add(new Collection(in,features));
+
+        writeOtherBlock(block);
+
+        long tablepos = out.getPosition();
+        out.setPosition(startpos);
+        out.writeInt((int)(tablepos-startpos));
+        out.setPosition(tablepos);
+
+        out.writeSmallInt(1);
+        out.writeInt(4);
+        out.writeString("");
+        blocks++;
     }
 
     private void analyseChunkOfType(OmaInputStream in, byte type, boolean split, int count, Bounds b) throws IOException

@@ -141,7 +141,7 @@ public class PositionOutputStream extends OutputStream
             System.err.println("            to '"+neu+"'.");
         }
         if (toDisk)
-            Files.move(filename,neu);
+            Files.move(filename,neu,StandardCopyOption.REPLACE_EXISTING);
         filename = neu;
     }
 

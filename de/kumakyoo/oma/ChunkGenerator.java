@@ -10,6 +10,8 @@ import java.nio.file.*;
 
 public class ChunkGenerator
 {
+    public static long ID_MARKER = 0x7f000000L;
+
     private String bbs;
     private OmaOutputStream infile;
     private Path outfile;
@@ -128,7 +130,7 @@ public class ChunkGenerator
             case 'B':
                 bb = new Bounds(in);
                 break;
-            case 'N': case 'W': case 'A':
+            case 'N': case 'W': case 'A': case 'C':
                 saveElementToChunk(in,type);
                 break;
             default:
@@ -191,7 +193,7 @@ public class ChunkGenerator
 
     private void saveChunks(byte type) throws IOException
     {
-        if (type!='N' && type!='W' && type!='A') return;
+        if (type!='N' && type!='W' && type!='A' && type!='C') return;
 
         if (Oma.verbose>=3)
             System.out.println("      Saving "+cout.length+" chunks of type '"+((char)type)+"'.");
@@ -259,12 +261,10 @@ public class ChunkGenerator
 
         ElementWithID e = readMetaData(in);
 
-        int taz = 0;
         int chunk = 0;
 
         if (type=='N')
         {
-            taz = in.readInt();
             int lon = in.readInt();
             int lat = in.readInt();
             chunk = getFirstChunk(lon,lat);
@@ -275,13 +275,14 @@ public class ChunkGenerator
         {
             int naz = in.readInt();
             out.writeSmallInt(naz);
-            taz = in.readInt();
             int[] lon = new int[naz];
             int[] lat = new int[naz];
             for (int i=0;i<naz;i++)
             {
                 lon[i] = in.readInt();
                 lat[i] = in.readInt();
+                if (lon[i]>=ID_MARKER)
+                    lon[i] = lat[i] = Integer.MAX_VALUE;
             }
             chunk = getFirstChunk(lon,lat);
             for (int i=0;i<naz;i++)
@@ -290,7 +291,7 @@ public class ChunkGenerator
                 lasty[chunk] = out.delta(lasty[chunk],lat[i]);
             }
         }
-        else
+        else if (type=='A')
         {
             int naz = in.readInt();
 
@@ -300,6 +301,8 @@ public class ChunkGenerator
             {
                 lon[i] = in.readInt();
                 lat[i] = in.readInt();
+                if (lon[i]>=ID_MARKER)
+                    lon[i] = lat[i] = Integer.MAX_VALUE;
             }
 
             int haz = in.readInt();
@@ -314,6 +317,8 @@ public class ChunkGenerator
                 {
                     hlon[i][j] = in.readInt();
                     hlat[i][j] = in.readInt();
+                    if (hlon[i][j]>=ID_MARKER)
+                        hlon[i][j] = hlat[i][j] = Integer.MAX_VALUE;
                 }
             }
 
@@ -335,11 +340,71 @@ public class ChunkGenerator
                     lasty[chunk] = out.delta(lasty[chunk],hlat[i][j]);
                 }
             }
+        }
+        else if (type=='C')
+        {
+            int naz = in.readInt();
 
-            taz = in.readInt();
+            String[] nrole = new String[naz];
+            int[] nlon = new int[naz];
+            int[] nlat = new int[naz];
+            for (int i=0;i<naz;i++)
+            {
+                nrole[i] = in.readUTF();
+                nlon[i] = in.readInt();
+                nlat[i] = in.readInt();
+                if (nlon[i]>=ID_MARKER)
+                    nlon[i] = nlat[i] = Integer.MAX_VALUE;
+            }
+
+            int waz = in.readInt();
+            String[] wrole = new String[waz];
+            int[][] wlon = new int[waz][];
+            int[][] wlat = new int[waz][];
+
+            for (int i=0;i<waz;i++)
+            {
+                wrole[i] = in.readUTF();
+                int az = in.readInt();
+                wlon[i] = new int[az];
+                wlat[i] = new int[az];
+                for (int j=0;j<az;j++)
+                {
+                    wlon[i][j] = in.readInt();
+                    wlat[i][j] = in.readInt();
+                    if (wlon[i][j]>=ID_MARKER)
+                        wlon[i][j] = wlat[i][j] = Integer.MAX_VALUE;
+                }
+            }
+
+            int aaz = in.readInt();
+
+            chunk = getFirstChunk(nlon,nlat,wlon,wlat);
+
+            out.writeSmallInt(naz);
+            for (int i=0;i<naz;i++)
+            {
+                out.writeString(nrole[i]);
+                lastx[chunk] = out.delta(lastx[chunk],nlon[i]);
+                lasty[chunk] = out.delta(lasty[chunk],nlat[i]);
+            }
+
+            out.writeSmallInt(waz);
+            for (int i=0;i<waz;i++)
+            {
+                out.writeString(wrole[i]);
+                out.writeSmallInt(wlon[i].length);
+                for (int j=0;j<wlon[i].length;j++)
+                {
+                    lastx[chunk] = out.delta(lastx[chunk],wlon[i][j]);
+                    lasty[chunk] = out.delta(lasty[chunk],wlat[i][j]);
+                }
+            }
+
+            out.writeSmallInt(aaz);
         }
 
-        copyTags(taz,in,out);
+        copyTags(in,out);
         e.writeMetaData(out,features);
 
         baos.writeTo(cout[chunk]);
@@ -367,10 +432,11 @@ public class ChunkGenerator
         return e;
     }
 
-    private void copyTags(int az, OmaInputStream in, OmaOutputStream out) throws IOException
+    private void copyTags(OmaInputStream in, OmaOutputStream out) throws IOException
     {
-        out.writeSmallInt(az);
-        for (int i=0;i<2*az;i++)
+        int taz = in.readInt();
+        out.writeSmallInt(taz);
+        for (int i=0;i<2*taz;i++)
             out.writeString(in.readUTF());
     }
 

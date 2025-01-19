@@ -12,11 +12,6 @@ public class Area extends Way
     {
     }
 
-    public Area(Multipolygon m)
-    {
-        super(m);
-    }
-
     public Area(OmaInputStream in, int features) throws IOException
     {
         int az = in.readSmallInt();

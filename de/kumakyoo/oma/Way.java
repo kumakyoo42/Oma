@@ -12,11 +12,6 @@ public class Way extends ElementWithID
     {
     }
 
-    public Way(Multipolygon m)
-    {
-        super(m.id,m.version,m.timestamp,m.changeset,m.uid,m.user,m.tags);
-    }
-
     public Way(OmaInputStream in, int features) throws IOException
     {
         int az = in.readSmallInt();
