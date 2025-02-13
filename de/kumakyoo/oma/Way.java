@@ -23,6 +23,7 @@ public class Way extends ElementWithID
             lat[k] = in.readDeltaY();
         }
         readTags(in);
+        readMembers(in);
         readMetaData(in,features);
     }
 

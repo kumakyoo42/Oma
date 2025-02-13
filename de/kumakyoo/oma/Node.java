@@ -16,6 +16,7 @@ public class Node extends ElementWithID
         lon = in.readDeltaX();
         lat = in.readDeltaY();
         readTags(in);
+        readMembers(in);
         readMetaData(in,features);
     }
 

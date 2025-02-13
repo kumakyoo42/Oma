@@ -5,75 +5,46 @@ import java.io.*;
 
 public class Relation extends ElementWithID
 {
-    public String[] noderole;
-    public Node[] node;
-
-    public String[] wayrole;
-    public Way[] way;
-
-    public String[] relrole;
-    public long[] relid;
+    public List<OSMMember> members;
+    public List<Map<String, String>> ctags;
 
     public Relation(OmaInputStream in, boolean preserve_id) throws IOException
     {
         id = (preserve_id||Oma.preserve_id)?in.readLong():0;
-        version = Oma.preserve_version?in.readInt():0;
+        version = Oma.preserve_version?in.readSmallInt():0;
         timestamp = Oma.preserve_timestamp?in.readLong():0;
         changeset = Oma.preserve_changeset?in.readLong():0;
         uid = Oma.preserve_user?in.readInt():0;
-        user = Oma.preserve_user?in.readUTF():"";
+        user = Oma.preserve_user?in.readString():"";
 
-        int raz = in.readInt();
-        relrole = new String[raz];
-        relid = new long[raz];
-        for (int i=0;i<raz;i++)
+        int maz = in.readSmallInt();
+        members = new ArrayList<>();
+        for (int i=0;i<maz;i++)
         {
-            relrole[i] = in.readUTF();
-            relid[i] = in.readLong();
+            String role = in.readString();
+            byte type = in.readByte();
+            long ref = in.readLong();
+            members.add(new OSMMember((char)type,ref,role));
         }
 
-        int naz = in.readInt();
-        noderole = new String[naz];
-        node = new Node[naz];
-        for (int i=0;i<naz;i++)
-        {
-            noderole[i] = in.readUTF();
-            node[i] = new Node();
-            node[i].lon = in.readInt();
-            node[i].lat = in.readInt();
-            if (((long)node[i].lon)<<32+node[i].lat>=Reunify.ID_MARKER)
-                node[i] = null;
-        }
-
-        int waz = in.readInt();
-        wayrole = new String[waz];
-        way = new Way[waz];
-        for (int i=0;i<waz;i++)
-        {
-            wayrole[i] = in.readUTF();
-            if (preserve_id && in.readByte()=='w')
-                in.readLong(); // skip ID
-            else
-            {
-                way[i] = new Way();
-                int az = in.readInt();
-                way[i].lon = new int[az];
-                way[i].lat = new int[az];
-                for (int j=0;j<az;j++)
-                {
-                    way[i].lon[j] = in.readInt();
-                    way[i].lat[j] = in.readInt();
-                }
-            }
-        }
-
-        int taz = in.readInt();
+        int taz = in.readSmallInt();
         tags = new HashMap<>();
-
         for (int i=0;i<taz;i++)
-            tags.put(in.readUTF(),in.readUTF());
+            tags.put(in.readString(),in.readString());
+
+        int caz = in.readSmallInt();
+        ctags = new ArrayList<>();
+        for (int j=0;j<caz;j++)
+        {
+            Map<String, String> ctag = new HashMap<>();
+            int ctaz = in.readSmallInt();
+            for (int i=0;i<ctaz;i++)
+                ctag.put(in.readString(),in.readString());
+            ctags.add(ctag);
+        }
     }
 
+    /*
     public void writeDirectElements(OmaOutputStream out, OmaOutputStream aout) throws IOException
     {
         String type = tags.get("type");
@@ -219,15 +190,14 @@ public class Relation extends ElementWithID
 
         return relid.length==0;
     }
+     */
 
-    public void write(OmaOutputStream out, boolean fin) throws IOException
+    public void write(OmaOutputStream out, boolean preserve_id) throws IOException
     {
-        if (fin) out.writeByte('C');
-
-        if (!fin || Oma.preserve_id)
+        if (preserve_id || Oma.preserve_id)
             out.writeLong(id);
         if (Oma.preserve_version)
-            out.writeInt(version);
+            out.writeSmallInt(version);
         if (Oma.preserve_timestamp)
             out.writeLong(timestamp);
         if (Oma.preserve_changeset)
@@ -235,61 +205,33 @@ public class Relation extends ElementWithID
         if (Oma.preserve_user)
         {
             out.writeInt(uid);
-            out.writeUTF(user);
+            out.writeString(user);
         }
 
-        if (!fin)
+        out.writeSmallInt(members.size());
+        for (OSMMember m:members)
         {
-            out.writeInt(relid.length);
-            for (int i=0;i<relid.length;i++)
-            {
-                out.writeUTF(relrole[i]);
-                out.writeLong(relid[i]);
-            }
+            out.writeString(m.role);
+            out.writeByte(m.type.charAt(0));
+            out.writeLong(m.ref);
         }
 
-        int naz = 0;
-        for (Node n:node)
-            if (n!=null)
-                naz++;
-
-        out.writeInt(naz);
-        for (int i=0;i<node.length;i++)
-            if (node[i]!=null)
-            {
-                out.writeUTF(noderole[i]);
-                out.writeInt(node[i].lon);
-                out.writeInt(node[i].lat);
-            }
-
-        int waz = 0;
-        for (Way w:way)
-            if (w!=null)
-                waz++;
-
-        out.writeInt(waz);
-        for (int i=0;i<way.length;i++)
-            if (way[i]!=null)
-            {
-                out.writeUTF(wayrole[i]);
-                if (!fin)
-                    out.writeByte('W');
-                out.writeInt(way[i].lon.length);
-                for (int j=0;j<way[i].lon.length;j++)
-                {
-                    out.writeInt(way[i].lon[j]);
-                    out.writeInt(way[i].lat[j]);
-                }
-            }
-
-        if (fin)
-            out.writeInt(0); // aaz
-
-        out.writeInt(tags.size());
+        out.writeSmallInt(tags.size());
         for (String key:tags.keySet())
         {
-            out.writeUTF(key);
-            out.writeUTF(tags.get(key));
+            out.writeString(key);
+            out.writeString(tags.get(key));
+        }
+
+        out.writeSmallInt(ctags.size());
+        for (Map<String, String> ctag:ctags)
+        {
+            out.writeSmallInt(ctag.size());
+            for (String key:ctag.keySet())
+            {
+                out.writeString(key);
+                out.writeString(ctag.get(key));
+            }
         }
     }
 }

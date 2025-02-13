@@ -275,7 +275,7 @@ public class PBFReader extends PackedIntegerReader
                 }
 
                 long delta = 0;
-                List<Member> members = new ArrayList<>();
+                List<OSMMember> members = new ArrayList<>();
                 try {
                     while (true)
                     {
@@ -283,7 +283,7 @@ public class PBFReader extends PackedIntegerReader
                         delta += s(rel.members);
                         String type = TYPES[(int)u(rel.types)];
 
-                        members.add(new Member(type,delta,role));
+                        members.add(new OSMMember(type,delta,role));
                     }
                 } catch (EOFException e) {}
 

@@ -2,9 +2,7 @@ package de.kumakyoo.oma;
 
 import java.util.Locale;
 import java.util.StringTokenizer;
-import java.util.Date;
 import java.time.Duration;
-import java.text.SimpleDateFormat;
 import java.io.IOException;
 import java.nio.file.Path;
 
@@ -28,7 +26,6 @@ public class Oma
 
     static boolean zip_chunks = true;
     static boolean one_element = false;
-    static boolean collections = false;
 
     static int verbose = 0;
     static boolean silent = false;
@@ -154,7 +151,6 @@ public class Oma
         System.err.println("                                   all,none); default: none");
         System.err.println("  -0             do not zip slices");
         System.err.println("  -1             add each element only once");
-        System.err.println("  -c             include collections");
         System.err.println("  -v             increase verboseness, can be used up to 4 times");
         System.err.println("  -s             silent mode: do not show any progress");
         System.err.println("  -tmp <dir>     directory to use for tmp files; default: default tmp directory");
@@ -180,8 +176,6 @@ public class Oma
                     zip_chunks = false;
                 else if (args[pos].equals("-1"))
                     one_element = true;
-                else if (args[pos].equals("-c"))
-                    collections = true;
                 else if (args[pos].equals("-b"))
                 {
                     if (pos==args.length-1) usage("missing filename after '-b'");

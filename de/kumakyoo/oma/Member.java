@@ -2,19 +2,14 @@ package de.kumakyoo.oma;
 
 public class Member
 {
-    String type;
-    long ref;
+    long id;
     String role;
+    int nr;
 
-    public Member(String type, long ref, String role)
+    public Member(long id, String role, int nr)
     {
-        this.type = type;
-        this.ref = ref;
+        this.id = id;
         this.role = role;
-    }
-
-    public String toString()
-    {
-        return type+"/"+ref+"/"+role;
+        this.nr = nr;
     }
 }

@@ -29,7 +29,7 @@ public class OSMXMLReader extends OSMReader
     String user = "";
     Map<String, String> tags = null;
     List<Long> nds = null;
-    List<Member> members = null;
+    List<OSMMember> members = null;
 
     String key = null;
     String value = null;
@@ -150,7 +150,7 @@ public class OSMXMLReader extends OSMReader
                             role = r.getAttributeValue(i);
                     }
 
-                    members.add(new Member(type,ref,role));
+                    members.add(new OSMMember(type,ref,role));
                 }
                 else if ("bounds".equals(name))
                 {

@@ -16,6 +16,7 @@ public class ElementWithID extends Element
     String user;
 
     Map<String, String> tags;
+    Member[] members;
 
     private static long discarded = 0;
 
@@ -103,6 +104,7 @@ public class ElementWithID extends Element
     {
         writeGeo(out);
         writeTags(out);
+        writeMembers(out);
         writeMetaData(out,features);
     }
 
@@ -125,6 +127,25 @@ public class ElementWithID extends Element
         {
             out.writeString(key);
             out.writeString(tags.get(key));
+        }
+    }
+
+    public void readMembers(OmaInputStream in) throws IOException
+    {
+        int az = in.readSmallInt();
+        members = new Member[az];
+        for (int i=0;i<az;i++)
+            members[i] = new Member(in.readLong(),in.readString(),in.readSmallInt());
+    }
+
+    public void writeMembers(OmaOutputStream out) throws IOException
+    {
+        out.writeSmallInt(members.length);
+        for (int i=0;i<members.length;i++)
+        {
+            out.writeLong(members[i].id);
+            out.writeString(members[i].role);
+            out.writeSmallInt(members[i].nr);
         }
     }
 

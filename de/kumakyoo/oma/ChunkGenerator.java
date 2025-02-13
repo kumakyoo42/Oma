@@ -70,15 +70,16 @@ public class ChunkGenerator
             if (line==null) break;
 
             StringTokenizer t = new StringTokenizer(line);
-            long lat_from = (long)(Double.parseDouble(t.nextToken())*10000000);
-            long lat_to = (long)(Double.parseDouble(t.nextToken())*10000000);
-            long lat_step = (long)(Double.parseDouble(t.nextToken())*10000000);
-            long lon_from = (long)(Double.parseDouble(t.nextToken())*10000000);
-            long lon_to = (long)(Double.parseDouble(t.nextToken())*10000000);
-            long lon_step = (long)(Double.parseDouble(t.nextToken())*10000000);
+            boolean iterate = t.countTokens()==6;
+            long lon_from = Long.parseLong(t.nextToken());
+            long lon_to = Long.parseLong(t.nextToken());
+            long lon_step = iterate?Long.parseLong(t.nextToken()):(lon_to-lon_from);
+            long lat_from = Long.parseLong(t.nextToken());
+            long lat_to = Long.parseLong(t.nextToken());
+            long lat_step = iterate?Long.parseLong(t.nextToken()):(lat_to-lat_from);
 
-            for (long lat = lat_from;lat<lat_to;lat+=lat_step)
-                for (long lon = lon_from;lon<lon_to;lon+=lon_step)
+            for (long lon = lon_from;lon<lon_to;lon+=lon_step)
+                for (long lat = lat_from;lat<lat_to;lat+=lat_step)
                 {
                     Bounds tmp = new Bounds((int)lon,(int)lat,(int)(lon+lon_step),(int)(lat+lat_step));
                     if (tmp.intersects(bb))
@@ -259,7 +260,7 @@ public class ChunkGenerator
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         OmaOutputStream out = new OmaOutputStream(baos);
 
-        ElementWithID e = readMetaData(in);
+        ElementWithID e = readMetaData(in,type);
 
         int chunk = 0;
 
@@ -273,7 +274,7 @@ public class ChunkGenerator
         }
         else if (type=='W')
         {
-            int naz = in.readInt();
+            int naz = in.readSmallInt();
             out.writeSmallInt(naz);
             int[] lon = new int[naz];
             int[] lat = new int[naz];
@@ -293,7 +294,7 @@ public class ChunkGenerator
         }
         else if (type=='A')
         {
-            int naz = in.readInt();
+            int naz = in.readSmallInt();
 
             int[] lon = new int[naz];
             int[] lat = new int[naz];
@@ -305,12 +306,12 @@ public class ChunkGenerator
                     lon[i] = lat[i] = Integer.MAX_VALUE;
             }
 
-            int haz = in.readInt();
+            int haz = in.readSmallInt();
             int[][] hlon = new int[haz][];
             int[][] hlat = new int[haz][];
             for (int i=0;i<haz;i++)
             {
-                naz = in.readInt();
+                naz = in.readSmallInt();
                 hlon[i] = new int[naz];
                 hlat[i] = new int[naz];
                 for (int j=0;j<naz;j++)
@@ -343,69 +344,25 @@ public class ChunkGenerator
         }
         else if (type=='C')
         {
-            int naz = in.readInt();
+            int[] lon = new int[2];
+            int[] lat = new int[2];
 
-            String[] nrole = new String[naz];
-            int[] nlon = new int[naz];
-            int[] nlat = new int[naz];
-            for (int i=0;i<naz;i++)
-            {
-                nrole[i] = in.readUTF();
-                nlon[i] = in.readInt();
-                nlat[i] = in.readInt();
-                if (nlon[i]>=ID_MARKER)
-                    nlon[i] = nlat[i] = Integer.MAX_VALUE;
-            }
+            lon[0] = in.readInt();
+            lat[0] = in.readInt();
+            lon[1] = in.readInt();
+            lat[1] = in.readInt();
 
-            int waz = in.readInt();
-            String[] wrole = new String[waz];
-            int[][] wlon = new int[waz][];
-            int[][] wlat = new int[waz][];
+            chunk = getFirstChunk(lon,lat);
 
-            for (int i=0;i<waz;i++)
-            {
-                wrole[i] = in.readUTF();
-                int az = in.readInt();
-                wlon[i] = new int[az];
-                wlat[i] = new int[az];
-                for (int j=0;j<az;j++)
-                {
-                    wlon[i][j] = in.readInt();
-                    wlat[i][j] = in.readInt();
-                    if (wlon[i][j]>=ID_MARKER)
-                        wlon[i][j] = wlat[i][j] = Integer.MAX_VALUE;
-                }
-            }
-
-            int aaz = in.readInt();
-
-            chunk = getFirstChunk(nlon,nlat,wlon,wlat);
-
-            out.writeSmallInt(naz);
-            for (int i=0;i<naz;i++)
-            {
-                out.writeString(nrole[i]);
-                lastx[chunk] = out.delta(lastx[chunk],nlon[i]);
-                lasty[chunk] = out.delta(lasty[chunk],nlat[i]);
-            }
-
-            out.writeSmallInt(waz);
-            for (int i=0;i<waz;i++)
-            {
-                out.writeString(wrole[i]);
-                out.writeSmallInt(wlon[i].length);
-                for (int j=0;j<wlon[i].length;j++)
-                {
-                    lastx[chunk] = out.delta(lastx[chunk],wlon[i][j]);
-                    lasty[chunk] = out.delta(lasty[chunk],wlat[i][j]);
-                }
-            }
-
-            out.writeSmallInt(aaz);
+            out.writeInt(lon[0]);
+            out.writeInt(lat[0]);
+            out.writeInt(lon[1]);
+            out.writeInt(lat[1]);
         }
 
         copyTags(in,out);
-        e.writeMetaData(out,features);
+        copyMembers(in,out);
+        e.writeMetaData(out,features|(type=='C'?2:0));
 
         baos.writeTo(cout[chunk]);
         count[chunk]++;
@@ -413,13 +370,13 @@ public class ChunkGenerator
 
     //////////////////////////////////////////////////////////////////
 
-    private ElementWithID readMetaData(OmaInputStream in) throws IOException
+    private ElementWithID readMetaData(OmaInputStream in, byte type) throws IOException
     {
         ElementWithID e = new ElementWithID();
-        if ((features&2)!=0)
+        if ((features&2)!=0 || type=='C')
             e.id = in.readLong();
         if ((features&4)!=0)
-            e.version = in.readInt();
+            e.version = in.readSmallInt();
         if ((features&8)!=0)
             e.timestamp = in.readLong();
         if ((features&16)!=0)
@@ -427,17 +384,29 @@ public class ChunkGenerator
         if ((features&32)!=0)
         {
             e.uid = in.readInt();
-            e.user = in.readUTF();
+            e.user = in.readString();
         }
         return e;
     }
 
     private void copyTags(OmaInputStream in, OmaOutputStream out) throws IOException
     {
-        int taz = in.readInt();
+        int taz = in.readSmallInt();
         out.writeSmallInt(taz);
         for (int i=0;i<2*taz;i++)
-            out.writeString(in.readUTF());
+            out.writeString(in.readString());
+    }
+
+    private void copyMembers(OmaInputStream in, OmaOutputStream out) throws IOException
+    {
+        int maz = in.readSmallInt();
+        out.writeSmallInt(maz);
+        for (int i=0;i<maz;i++)
+        {
+            out.writeLong(in.readLong());
+            out.writeString(in.readString());
+            out.writeSmallInt(in.readSmallInt());
+        }
     }
 
     private int getFirstChunk(int lon, int lat)

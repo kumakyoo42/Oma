@@ -1,7 +1,8 @@
 # Oma - a converter from OSM data to OMA file format
 
 ***Note: Oma software (including additional programs like
-[Opa](https://github.com/kumakyoo42/Opa) and libraries) and [related
+[Opa](https://github.com/kumakyoo42/Opa) and
+[libraries](https://github.com/kumakyoo42/OmaLibJava)) and [related
 file formats](https://github.com/kumakyoo42/oma-file-formats) are
 currently experimental and subject to change without notice.***
 
@@ -70,12 +71,19 @@ any files containing the missing features, so I neither could test
 them nor did I need them.)
 
 * The application may crash due to memory shortage. This cannot be
-avoided when working with JAVA and large amounts of memory, as JAVA
-does not provide any means to make sure that memory allocation will
-work in advance. According to JAVA specs the virtual machine may break
-at any time with an OutOfMemoryError. Further more, there is no
+avoided when working with JAVA and large amounts of memory, because
+JAVA does not provide any means to make sure that memory allocation
+will work in advance. According to JAVA specs the virtual machine may
+break at any time with an OutOfMemoryError. Further more, there is no
 guarantee that garbage collection is invoked, even when explicitly
 requested by the software.
 
 * Due to this memory limitations, some temporary files are used, even
 when they would have fitted completely into main memory.
+
+* In the first step of the conversion, Oma tries to allocate as many
+nodes as possible. This may lead to the usage of temporary files,
+which could have been avoided, if the number of nodes allocated would
+have been smaller.
+
+* Bounding boxes for collections are not calculated.

@@ -134,7 +134,7 @@ public class O5MReader extends PackedIntegerReader
         DataInputStream tmp = in;
         in = getChunk((int)u(in));
 
-        List<Member> members = new ArrayList<>();
+        List<OSMMember> members = new ArrayList<>();
         while (true)
         {
             try {
@@ -143,7 +143,7 @@ public class O5MReader extends PackedIntegerReader
                 int t = pair[0].charAt(0)-'0';
                 refid[t] += delta;
 
-                members.add(new Member(type[t],refid[t],pair[1]));
+                members.add(new OSMMember(type[t],refid[t],pair[1]));
             } catch (EOFException ex) { break; }
         }
 

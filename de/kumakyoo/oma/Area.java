@@ -37,6 +37,7 @@ public class Area extends Way
             }
         }
         readTags(in);
+        readMembers(in);
         readMetaData(in,features);
     }
 
@@ -49,6 +50,7 @@ public class Area extends Way
         this.uid = w.uid;
         this.user = w.user;
         this.tags = w.tags;
+        this.members = w.members;
         this.lon = new int[w.lon.length-1];
         this.lat = new int[w.lat.length-1];
         System.arraycopy(w.lon,0,this.lon,0,w.lon.length-1);

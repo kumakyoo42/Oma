@@ -6,78 +6,6 @@ import java.util.*;
 
 public class Reunify
 {
-    /*
-     * Data flow of temporary files is rather complicate,
-     * see following diagram:
-     *
-     * As of 6. 2. 2025
-     *
-     *                       OSM file (xml, o5m, pbf)
-     * 1. readFile()            /  /   |   \    \
-     *                      tmp1  w    r  nodes  ways
-     *
-     *   tmp1 (final output) : nodes with tags
-     *   w                   : ways with tags
-     *   r                   : relations with at least one member
-     *   nodes               : nodes that do not fit into memory (only id and geo)
-     *   ways                : ways (only id and geo)
-     *
-     *
-     *                           w    r   ways    nodes
-     * 2. updateNodes()          |*   |*   |*     -----
-     *                           w    r   ways
-     *
-     *   Replaces node ids with nodes from nodes file.
-     *   Will repeat until all nodes have been processed.
-     *
-     *
-     *                           w       w
-     * 3. addWays()              |       -
-     *                         tmp1
-     *
-     *   Content of w is appended to tmp1.
-     *
-     *
-     *                           r      ways
-     * 4. updateWays()           |*     ----
-     *                           r
-     *
-     *   Replaces way ids with ways from ways file.
-     *   Will repeat until all ways have been processed.
-     *
-     *
-     *                                  r                 r
-     * 5. convertRelations()          / | \               -
-     *                            tmp1  a  collections
-     *
-     *   Splits relations into ways, areas and collections.
-     *   Ways are immediately appended to tmp1.
-     *
-     *
-     *                           a        a
-     * 6. addAreas()             |        -
-     *                         tmp1
-     *
-     *    Content of a is appended to tmp1.
-     *
-     *
-     *                              collections
-     * 7. updateCollections()            |*
-     *                              collections
-     *
-     *    Replaces members of type relation by their content.
-     *    Will repeat until all relations have been processed.
-     *
-     *
-     *                              collections   collections
-     * 8. addCollections()               |        -----------
-     *                                 tmp1
-     *
-     *    Appends the collections to tmp1.
-     *    Formatting of collections is slightly altered.
-     *
-     */
-
     // Marker for IDs: Instead of nodes that cannot be replaced the
     // ID is saved. To distinguish the IDs from nodes, ID_MARKER is
     // added to IDs. This leads to a value, interpreted as
@@ -88,59 +16,45 @@ public class Reunify
 
     private Path infile;
     private Path outfile;
-    private Path nodes;
-    private Path ways;
-    private Path collections;
+
+    private Path ntmp;
     private Path wtmp;
-    private Path atmp;
-    private Path rtmp;
+    private Path rwtmp;
+    private Path ratmp;
+    private Path rctmp;
+
+    private Path nodes;
 
     private OmaOutputStream nos;
-    private OmaOutputStream wos;
-    private OmaOutputStream cos;
+
     private OmaOutputStream out;
+    private OmaOutputStream nout;
     private OmaOutputStream wout;
     private OmaOutputStream aout;
-    private OmaOutputStream rout;
+    private OmaOutputStream rwout;
+    private OmaOutputStream raout;
+    private OmaOutputStream rcout;
 
-    private long exp_nodes;
-    private long exp_ways;
-    private long exp_rels;
-
-    // Intermediate memory storage of nodes and ways. Using three/two
-    // arrays, because this needs less memory than using one array
-    // with some object as elements. Also uses less memory than using
-    // a HashMap, which would allow for a faster lookup. (Due to the
-    // inner workings of HashMaps they tend to produce memory errors
-    // anyway.)
-    private long[] nodes_id;
-    private int[] nodes_lon;
-    private int[] nodes_lat;
-    private int nodes_c;
-
-    private long[] ways_id;
-    private byte[][] ways_data;
-    private int ways_c;
-
-    private long[] colls_id;
-    private boolean[] colls_used;
-    private Relation[] colls_data;
-    private int colls_c;
-
-    private long missing_nodes;
-    private long missing_ways;
-    private long missing_colls;
+    private long nc,wc,rc,rac,rwc,rcc;
 
     private boolean all_nodes_read;
     private boolean all_ways_read;
 
-    private long colls_updated;
+    private long[] ids;
 
-    private long nc,wc,rc,nc_used,wc_used,rc_used;
+    private int[] nodes_lon;
+    private int[] nodes_lat;
+    private int nodes_c;
 
-    private boolean bounds = false;
+    private byte[][] ways_data;
+    private int ways_c;
 
-    private long minlon,maxlon,minlat,maxlat;
+    private Map<Long,List<Member>> members;
+
+    private long missing_nodes;
+    private long missing_ways;
+
+    private Bounds bounding_box;
 
     public Reunify(Path infile, Path outfile)
     {
@@ -150,81 +64,25 @@ public class Reunify
 
     public OmaOutputStream process() throws IOException
     {
-        out = OmaOutputStream.init(outfile,true);
-
-        initMemory();
+        allocateMemory("nodes");
         readFile();
-
         updateNodes();
-        releaseNodes();
-        addWays();
+        releaseMemory();
 
-        allocateMemoryForWays();
+        allocateMemory("ways");
         updateWays();
-        releaseWays();
+        releaseMemory();
 
-        convertRelations();
-        addAreas();
-
-        if (Oma.collections)
-        {
-            allocateMemoryForCollections();
-            updateCollections();
-            releaseCollections();
-            addCollections();
-        }
-
+        out = OmaOutputStream.init(outfile,true);
+        out.writeByte('B');
+        bounding_box.write(out);
+        addMembers();
         out.close();
 
         return out;
     }
 
-    private void initMemory() throws IOException
-    {
-        if (Oma.verbose>=2)
-            System.out.println("  Initializing memory...");
-
-        estimateElementCounts(Files.size(infile), Tools.isO5M(infile), Tools.isPBF(infile));
-        allocateMemoryForNodes();
-
-        if (Oma.verbose>=2)
-            System.out.println("    Initializing memory was successful.");
-    }
-
-    private void estimateElementCounts(long filesize, boolean o5m, boolean pbf)
-    {
-        // The numbers here are somewhat fancy, as the number of nodes
-        // increases more over time than the other two. Maybe, we should assume that
-        // the file is made up only of nodes.
-        if (o5m)
-        {
-            exp_nodes = (long)(filesize/15);
-            exp_ways = (long)(filesize/90);
-            exp_rels = (long)(filesize/7300);
-        }
-        else if (pbf)
-        {
-            exp_nodes = (long)(filesize/7);
-            exp_ways = (long)(filesize/40);
-            exp_rels = (long)(filesize/3600);
-        }
-        else
-        {
-            exp_nodes = (long)(filesize/125);
-            exp_ways = (long)(filesize/760);
-            exp_rels = (long)(filesize/61000);
-        }
-
-        if (Oma.verbose>=3)
-        {
-            System.out.println("      Filesize: "+Tools.humanReadable(filesize));
-            System.out.println("      Expected nodes: "+Tools.humanReadable(exp_nodes));
-            System.out.println("      Expected ways: "+Tools.humanReadable(exp_ways));
-            System.out.println("      Expected relations: "+Tools.humanReadable(exp_rels));
-        }
-    }
-
-    private void allocateMemoryForNodes()
+    private void allocateMemory(String type)
     {
         long available = Tools.memavail();
         long useable = (available-Oma.memlimit)/10*9;
@@ -233,147 +91,65 @@ public class Reunify
         if (Oma.verbose>=3)
         {
             System.out.println("      Available memory: "+Tools.humanReadable(available));
-            System.out.println("      Useable for nodes: "+Tools.humanReadable(useable));
+            System.out.println("      Useable: "+Tools.humanReadable(useable));
         }
 
-        long wish = Math.min(exp_nodes/5*6+5,useable/16+1);
-        int max_nodes = wish>Integer.MAX_VALUE-10?Integer.MAX_VALUE-10:(int)wish;
+        long wish =
+            switch (type)
+            {
+                case "nodes" -> useable/16+1;
+                case "ways" -> useable/90+1;
+                case "relations" -> useable/10000+1;
+                default -> -1;
+            };
+
+        if ("relations".equals(type)) wish = 900; // xxx
+
+        int max = wish>Integer.MAX_VALUE-10?Integer.MAX_VALUE-10:(int)wish;
 
         while (true)
             try
             {
                 if (Oma.verbose>=3)
-                    System.out.println("      Trying to allocate "+max_nodes+" nodes...");
-                nodes_id = new long[max_nodes];
-                nodes_lon = new int[max_nodes];
-                nodes_lat = new int[max_nodes];
+                    System.out.println("      Trying to allocate "+max+" "+type+"...");
+
+                ids = new long[max];
+
+                switch (type)
+                {
+                    case "nodes" ->
+                    {
+                        nodes_lon = new int[max];
+                        nodes_lat = new int[max];
+                    }
+                    case "ways" -> ways_data = new byte[max][];
+                }
                 break;
             }
             catch (OutOfMemoryError e)
             {
-                if (max_nodes<2)
+                if (max<2)
                 {
                     System.err.println("There seems to be almost no available memory. Giving up.");
                     System.exit(-1);
                 }
 
-                releaseNodes();
-                max_nodes /= 2;
+                releaseMemory();
+                max /= 2;
 
                 if (Oma.verbose>=3)
                     System.out.println("      Didn't work. Halving amount. Keep fingers crossed...");
             }
 
         if (Oma.verbose>=3)
-            System.out.println("      Allocation was successfull.");
+            System.out.println("      Allocation was successful.");
     }
 
-    private void allocateMemoryForWays()
+    private void releaseMemory()
     {
-        long available = Tools.memavail();
-        long useable = (available-Oma.memlimit)/10*9;
-        if (useable<100000) useable = available/5*4;
-
-        if (Oma.verbose>=3)
-        {
-            System.out.println("      Available memory: "+Tools.humanReadable(available));
-            System.out.println("      Useable for ways: "+Tools.humanReadable(useable));
-        }
-
-        long wish = Math.min(exp_ways/5*6+5,useable/90+1);
-        int max_ways = wish>Integer.MAX_VALUE-10?Integer.MAX_VALUE-10:(int)wish;
-
-        while (true)
-            try
-            {
-                if (Oma.verbose>=3)
-                    System.out.println("      Trying to allocate "+max_ways+" ways...");
-                ways_id = new long[max_ways];
-                ways_data = new byte[max_ways][];
-                break;
-            }
-            catch (OutOfMemoryError e)
-            {
-                if (max_ways<2)
-                {
-                    System.err.println("There seems to be almost no available memory. Giving up.");
-                    System.exit(-1);
-                }
-
-                releaseWays();
-                max_ways /= 2;
-
-                if (Oma.verbose>=3)
-                    System.out.println("      Didn't work. Halving amount. Keep fingers crossed...");
-            }
-
-        if (Oma.verbose>=3)
-            System.out.println("      Allocation was successfull.");
-    }
-
-    private void allocateMemoryForCollections()
-    {
-        long available = Tools.memavail();
-        long useable = (available-Oma.memlimit)/10*9;
-        if (useable<100000) useable = available/5*4;
-
-        if (Oma.verbose>=3)
-        {
-            System.out.println("      Available memory: "+Tools.humanReadable(available));
-            System.out.println("      Useable for collections: "+Tools.humanReadable(useable));
-        }
-
-        long wish = Math.min(exp_rels/5*6+5,useable/10000+1);
-        int max_colls = wish>Integer.MAX_VALUE-10?Integer.MAX_VALUE-10:(int)wish;
-
-        while (true)
-            try
-            {
-                if (Oma.verbose>=3)
-                    System.out.println("      Trying to allocate "+max_colls+" collections...");
-                colls_id = new long[max_colls];
-                colls_used = new boolean[max_colls];
-                colls_data = new Relation[max_colls];
-                break;
-            }
-            catch (OutOfMemoryError e)
-            {
-                if (max_colls<2)
-                {
-                    System.err.println("There seems to be almost no available memory. Giving up.");
-                    System.exit(-1);
-                }
-
-                releaseCollections();
-                max_colls /= 2;
-
-                if (Oma.verbose>=3)
-                    System.out.println("      Didn't work. Halving amount. Keep fingers crossed...");
-            }
-
-        if (Oma.verbose>=3)
-            System.out.println("      Allocation was successfull.");
-    }
-
-    private void releaseNodes()
-    {
-        nodes_id = null;
+        ids = null;
         nodes_lon = nodes_lat = null;
-        Tools.gc();
-    }
-
-    private void releaseWays()
-    {
-        ways_id = null;
         ways_data = null;
-        Tools.gc();
-    }
-
-    private void releaseCollections()
-    {
-        colls_id = null;
-        colls_used = null;
-        colls_data = null;
         Tools.gc();
     }
 
@@ -386,10 +162,16 @@ public class Reunify
 
         OSMReader r = OSMReader.getReader(infile);
 
+        ntmp = Tools.tmpFile("n");
+        nout = OmaOutputStream.init(ntmp);
         wtmp = Tools.tmpFile("w");
         wout = OmaOutputStream.init(wtmp);
-        rtmp = Tools.tmpFile("r");
-        rout = OmaOutputStream.init(rtmp);
+        rwtmp = Tools.tmpFile("rw");
+        rwout = OmaOutputStream.init(rwtmp);
+        ratmp = Tools.tmpFile("ra");
+        raout = OmaOutputStream.init(ratmp);
+        rctmp = Tools.tmpFile("rc");
+        rcout = OmaOutputStream.init(rctmp);
 
         while (true)
         {
@@ -410,8 +192,12 @@ public class Reunify
         if (!all_ways_read) endWays();
         endRelations();
 
+        nout.close();
         wout.close();
-        rout.close();
+        rwout.close();
+        raout.close();
+        rcout.close();
+
         r.close();
 
         if (Oma.verbose>=2)
@@ -423,19 +209,18 @@ public class Reunify
 
     private void processBounds(Bounds b) throws IOException
     {
-        out.writeByte('B');
-        b.write(out);
+        bounding_box = b;
     }
 
     private void processNode(OSMNode n) throws IOException
     {
         nc++;
         if (!Oma.silent && nc%100000==0)
-            System.err.printf("Step 1: reading nodes: ~%.1f%%        \r",100.0/exp_nodes*nc);
+            System.err.print("Step 1: reading nodes: "+Tools.humanReadable(nc)+"        \r");
 
-        if (nodes_c<nodes_id.length)
+        if (nodes_c<ids.length)
         {
-            nodes_id[nodes_c] = n.id;
+            ids[nodes_c] = n.id;
             nodes_lon[nodes_c] = n.lon;
             nodes_lat[nodes_c] = n.lat;
             nodes_c++;
@@ -449,154 +234,146 @@ public class Reunify
             nos.writeInt(n.lat);
         }
 
-        if (n.tags.size()==0) return;
+        writeMeta(nout,n);
 
-        nc_used++;
+        nout.writeInt(n.lon);
+        nout.writeInt(n.lat);
 
-        out.writeByte('N');
-        if (Oma.preserve_id)
-            out.writeLong(n.id);
-        if (Oma.preserve_version)
-            out.writeInt(n.version);
-        if (Oma.preserve_timestamp)
-            out.writeLong(n.timestamp);
-        if (Oma.preserve_changeset)
-            out.writeLong(n.changeset);
-        if (Oma.preserve_user)
-        {
-            out.writeInt(n.uid);
-            out.writeUTF(n.user);
-        }
-
-        out.writeInt(n.lon);
-        out.writeInt(n.lat);
-
-        out.writeInt(n.tags.size());
-        for (var tag:n.tags.entrySet())
-        {
-            out.writeUTF(tag.getKey());
-            out.writeUTF(tag.getValue());
-        }
+        writeTags(nout,n);
     }
 
     private void processWay(OSMWay w) throws IOException
     {
         wc++;
         if (!Oma.silent && wc%10000==0)
-            System.err.printf("Step 1: reading ways: ~%.1f%%        \r",100.0/exp_ways*wc);
+            System.err.print("Step 1: reading ways: "+Tools.humanReadable(wc)+"       \r");
 
         if (!all_nodes_read) endNodes();
 
-        if (wos==null) initTmpWays();
+        writeMeta(wout,w);
 
-        wos.writeLong(w.id);
-        wos.writeInt(w.nds.size());
-        for (int i=0;i<w.nds.size();i++)
-            writeNodeLocation(wos,w.nds.get(i));
-
-        if (w.tags.size()==0) return;
-
-        wc_used++;
-
-        wout.writeByte('W');
-        if (Oma.preserve_id)
-            wout.writeLong(w.id);
-        if (Oma.preserve_version)
-            wout.writeInt(w.version);
-        if (Oma.preserve_timestamp)
-            wout.writeLong(w.timestamp);
-        if (Oma.preserve_changeset)
-            wout.writeLong(w.changeset);
-        if (Oma.preserve_user)
-        {
-            wout.writeInt(w.uid);
-            wout.writeUTF(w.user);
-        }
-
-        wout.writeInt(w.nds.size());
+        wout.writeSmallInt(w.nds.size());
         for (int i=0;i<w.nds.size();i++)
             writeNodeLocation(wout,w.nds.get(i));
 
-        wout.writeInt(w.tags.size());
-        for (var tag:w.tags.entrySet())
-        {
-            wout.writeUTF(tag.getKey());
-            wout.writeUTF(tag.getValue());
-        }
+        writeTags(wout,w);
     }
 
     private void processRelation(OSMRelation r) throws IOException
     {
         rc++;
         if (!Oma.silent && rc%1000==0)
-            System.err.printf("Step 1: reading relations: ~%.1f%%        \r",100.0/exp_rels*rc);
+            System.err.print("Step 1: reading relations: "+Tools.humanReadable(rc)+"        \r");
 
         if (!all_nodes_read) endNodes();
         if (!all_ways_read) endWays();
 
-        if (r.tags.size()<=1) return;
+        String type = r.tags.get("type");
 
-        rc_used++;
+        if ("multipolygon".equals(type) || "boundary".equals(type))
+        {
+            rac++;
+            writeMeta(raout,r);
 
-        rout.writeByte('C');
-        rout.writeLong(r.id);
+            int maz = 0;
+            for (OSMMember m:r.members)
+                if ("way".equals(m.type) && ("outer".equals(m.role) || "inner".equals(m.role)))
+                    maz++;
+
+            raout.writeSmallInt(maz);
+            for (OSMMember m:r.members)
+                if ("way".equals(m.type) && ("outer".equals(m.role) || "inner".equals(m.role)))
+                {
+                    raout.writeString(m.role);
+                    raout.writeByte('w');
+                    raout.writeLong(m.ref);
+                    m.ref = -1;
+                    missing_ways++;
+                }
+
+            writeTags(raout,r);
+        }
+
+        if ("restriction".equals(type) || "destination_sign".equals(type))
+        {
+            rwc++;
+            writeMeta(rwout,r);
+
+            int maz = 0;
+            for (OSMMember m:r.members)
+                if ("way".equals(m.type) && ("from".equals(m.role) || "to".equals(m.role) || "via".equals(m.role) || "intersection".equals(m.role)))
+                    maz++;
+            for (OSMMember m:r.members)
+                if ("node".equals(m.type) && ("via".equals(m.role) || "intersection".equals(m.role)))
+                    maz++;
+
+            rwout.writeSmallInt(maz);
+            for (OSMMember m:r.members)
+                if ("way".equals(m.type) && ("from".equals(m.role) || "to".equals(m.role) || "via".equals(m.role) || "intersection".equals(m.role)))
+                {
+                    rwout.writeString(m.role);
+                    rwout.writeByte('w');
+                    rwout.writeLong(m.ref);
+                    m.ref = -1;
+                    missing_ways++;
+                }
+            for (OSMMember m:r.members)
+                if ("node".equals(m.type) && ("via".equals(m.role) || "intersection".equals(m.role)))
+                {
+                    rwout.writeString(m.role);
+                    rwout.writeByte('n');
+                    writeNodeLocation(rwout,m.ref);
+                    m.ref = -1;
+                }
+
+            writeTags(rwout,r);
+        }
+
+        int raz = 0;
+        for (OSMMember m:r.members)
+            if (m.ref!=-1)
+                raz++;
+
+        if (raz==0) return;
+
+        rcc++;
+        writeMeta(rcout,r);
+
+        rcout.writeSmallInt(raz);
+        for (OSMMember m:r.members)
+            if (m.ref!=-1)
+            {
+                rcout.writeString(m.role);
+                rcout.writeByte(m.type.charAt(0));
+                rcout.writeLong(m.ref);
+            }
+
+        writeTags(rcout,r);
+    }
+
+    private void writeMeta(OmaOutputStream out, ElementWithID e) throws IOException
+    {
+        out.writeLong(e.id);
         if (Oma.preserve_version)
-            rout.writeInt(r.version);
+            out.writeSmallInt(e.version);
         if (Oma.preserve_timestamp)
-            rout.writeLong(r.timestamp);
+            out.writeLong(e.timestamp);
         if (Oma.preserve_changeset)
-            rout.writeLong(r.changeset);
+            out.writeLong(e.changeset);
         if (Oma.preserve_user)
         {
-            rout.writeInt(r.uid);
-            rout.writeUTF(r.user);
+            out.writeInt(e.uid);
+            out.writeString(e.user);
         }
+    }
 
-        int naz = 0;
-        int waz = 0;
-        int raz = 0;
-        for (Member m:r.members)
+    private void writeTags(OmaOutputStream out, ElementWithID e) throws IOException
+    {
+        out.writeSmallInt(e.tags.size());
+        for (var tag:e.tags.entrySet())
         {
-            if ("node".equals(m.type))
-                naz++;
-            if ("way".equals(m.type))
-                waz++;
-            if ("relation".equals(m.type))
-                raz++;
-        }
-
-        // Relations need to be saved first. We need that later...
-        rout.writeInt(raz);
-        for (Member m:r.members)
-            if ("relation".equals(m.type))
-            {
-                rout.writeUTF(m.role);
-                rout.writeLong(m.ref);
-            }
-
-        rout.writeInt(naz);
-        for (Member m:r.members)
-            if ("node".equals(m.type))
-            {
-                rout.writeUTF(m.role);
-                writeNodeLocation(rout,m.ref);
-            }
-
-        rout.writeInt(waz);
-        for (Member m:r.members)
-            if ("way".equals(m.type))
-            {
-                rout.writeUTF(m.role);
-                rout.writeByte('w');
-                rout.writeLong(m.ref);
-                missing_ways++;
-            }
-
-        rout.writeInt(r.tags.size());
-        for (var tag:r.tags.entrySet())
-        {
-            rout.writeUTF(tag.getKey());
-            rout.writeUTF(tag.getValue());
+            out.writeString(tag.getKey());
+            out.writeString(tag.getValue());
         }
     }
 
@@ -606,16 +383,13 @@ public class Reunify
         nos = OmaOutputStream.init(nodes);
     }
 
-    private void initTmpWays() throws IOException
-    {
-        ways = Tools.tmpFile("ways");
-        wos = OmaOutputStream.init(ways,true);
-    }
-
     private void endNodes() throws IOException
     {
         if (Oma.verbose>=3)
-            System.out.println("      "+Tools.humanReadable(nc)+" nodes read, "+Tools.humanReadable(nc_used)+" nodes used.");
+        {
+            System.err.print("                                                                              \r");
+            System.out.println("      "+Tools.humanReadable(nc)+" nodes read.");
+        }
 
         all_nodes_read = true;
 
@@ -629,25 +403,28 @@ public class Reunify
     private void endWays() throws IOException
     {
         if (Oma.verbose>=3)
-            System.out.println("      "+Tools.humanReadable(wc)+" ways read, "+Tools.humanReadable(wc_used)+" ways used.");
+        {
+            System.err.print("                                                                              \r");
+            System.out.println("      "+Tools.humanReadable(wc)+" ways read.");
+        }
 
         all_ways_read = true;
-
-        if (wos==null) return;
-        wos.close();
     }
 
     private void endRelations()
     {
         if (Oma.verbose>=3)
-            System.out.println("      "+Tools.humanReadable(rc)+" relations read, "+Tools.humanReadable(rc_used)+" relations used.");
+        {
+            System.err.print("                                                                              \r");
+            System.out.println("      "+Tools.humanReadable(rc)+" relations read ("+rwc+" ways, "+rac+" areas, "+rcc+" collections).");
+        }
     }
 
     // Searching node, using binary search. If node is not found,
     // writing marked id instead.
     private void writeNodeLocation(OmaOutputStream s, long id) throws IOException
     {
-        int pos = Arrays.binarySearch(nodes_id,0,nodes_c,id);
+        int pos = Arrays.binarySearch(ids,0,nodes_c,id);
         if (pos>=0)
         {
             s.writeInt(nodes_lon[pos]);
@@ -681,8 +458,8 @@ public class Reunify
     private void addMissingNodes() throws IOException
     {
         long node_count = nos.fileSize()/16;
-        long passes = node_count/nodes_id.length;
-        if (node_count%nodes_id.length>0) passes++;
+        long passes = node_count/ids.length;
+        if (node_count%ids.length>0) passes++;
 
         if (Oma.verbose>=3)
         {
@@ -704,9 +481,9 @@ public class Reunify
             if (Oma.verbose>=3)
                 System.out.println("      Pass "+(pass+1)+": "+nodes_c+" nodes read.");
 
-            updateNodesOfUsedWays();
-            updateNodesOfSavedWays();
-            updateNodesOfRelationFile();
+            updateNodesOfWays();
+            updateNodesOfRelationWays();
+            updateNodesOfRelationAreas();
         }
         nis.release();
     }
@@ -715,9 +492,9 @@ public class Reunify
     {
         try
         {
-            for (nodes_c=0;nodes_c<nodes_id.length;nodes_c++)
+            for (nodes_c=0;nodes_c<ids.length;nodes_c++)
             {
-                nodes_id[nodes_c] = nis.readLong();
+                ids[nodes_c] = nis.readLong();
                 nodes_lon[nodes_c] = nis.readInt();
                 nodes_lat[nodes_c] = nis.readInt();
             }
@@ -728,32 +505,24 @@ public class Reunify
         }
     }
 
-    private void updateNodesOfUsedWays() throws IOException
+    private void updateNodesOfWays() throws IOException
     {
         if (!Oma.silent)
-            System.err.print("Step 1: preparing update of used ways                           \r");
+            System.err.print("Step 1: preparing update of ways                           \r");
 
-        long fs = wout.fileSize();
         wout.move(Tools.tmpFile("original"));
 
         OmaInputStream in = OmaInputStream.init(wout);
         wout = OmaOutputStream.init(wtmp,true);
 
-        byte type = 0;
-        int c = 0;
-        while (true)
+        for (int c=0;c<wc;c++)
         {
-            if (!Oma.silent && ++c%100000==0)
-            {
-                long sz = wout.fileSize();
-                System.err.printf("Step 1: updating nodes of used ways: %.1f%%        \r",100.0/fs*sz);
-            }
+            if (!Oma.silent && c%100000==0)
+                System.err.printf("Step 1: updating nodes of ways: %.1f%%        \r",100.0/wc*c);
 
-            try {
-                type = in.readByte();
-            } catch (EOFException e) { break; }
-
-            copyWayReplacingIDs(in);
+            copyMetaData(wout, in);
+            copyArrayOfNodesReplacingIDs(in,wout);
+            copyTags(wout,in);
         }
         if (!Oma.silent)
             System.err.print("Step 1:                                                                     \r");
@@ -762,136 +531,111 @@ public class Reunify
         wout.close();
     }
 
-    private void updateNodesOfSavedWays() throws IOException
+    private void updateNodesOfRelationWays() throws IOException
     {
         if (!Oma.silent)
-            System.err.print("Step 1: preparing update of saved ways                          \r");
+            System.err.print("Step 1: preparing update of ways from relations                   \r");
 
-        long fs = wos.fileSize();
-        wos.move(Tools.tmpFile("original"));
+        rwout.move(Tools.tmpFile("original"));
 
-        OmaInputStream in = OmaInputStream.init(wos);
-        wos = OmaOutputStream.init(ways,true);
+        OmaInputStream in = OmaInputStream.init(rwout);
+        rwout = OmaOutputStream.init(rwtmp,true);
 
-        int c = 0;
-        while (true)
+        for (int c=0;c<rwc;c++)
         {
-            if (!Oma.silent && ++c%100000==0)
-            {
-                long sz = wos.fileSize();
-                System.err.printf("Step 1: updating nodes of saved ways: %.1f%%        \r",100.0/fs*sz);
-            }
+            if (!Oma.silent && c%100000==0)
+                System.err.printf("Step 1: updating nodes of ways from relations: %.1f%%        \r",100.0/rwc*c);
 
-            try {
-                wos.writeLong(in.readLong());
-            } catch (EOFException e) { break; }
-
-            copyArrayOfNodesReplacingIDs(in,wos,false);
+            copyMetaData(rwout, in);
+            copyMemberReplacingIDs(in, rwout);
+            copyTags(rwout,in);
         }
         if (!Oma.silent)
             System.err.print("Step 1:                                                                     \r");
 
         in.release();
-        wos.close();
+        rwout.close();
     }
 
-    private void updateNodesOfRelationFile() throws IOException
+    private void updateNodesOfRelationAreas() throws IOException
     {
         if (!Oma.silent)
-            System.err.print("Step 1: preparing update of relation file                       \r");
+            System.err.print("Step 1: preparing update of areas from relations                   \r");
 
-        long fs = rout.fileSize();
-        rout.move(Tools.tmpFile("original"));
+        raout.move(Tools.tmpFile("original"));
 
-        OmaInputStream in = OmaInputStream.init(rout);
-        rout = OmaOutputStream.init(rtmp,true);
+        OmaInputStream in = OmaInputStream.init(raout);
+        raout = OmaOutputStream.init(ratmp,true);
 
-        byte type = 0;
-        int c = 0;
-        while (true)
+        for (int c=0;c<rac;c++)
         {
-            if (!Oma.silent && ++c%100000==0)
-            {
-                long sz = rout.fileSize();
-                System.err.printf("Step 1: updating nodes of relation file: %.1f%%        \r",100.0/fs*sz);
-            }
+            if (!Oma.silent && c%100000==0)
+                System.err.printf("Step 1: updating nodes of areas from relations: %.1f%%        \r",100.0/rac*c);
 
-            try {
-                type = in.readByte();
-            } catch (EOFException e) { break; }
-
-            copyCollectionReplacingIDs(in);
+            copyMetaData(raout, in);
+            copyMemberReplacingIDs(in, raout);
+            copyTags(raout,in);
         }
         if (!Oma.silent)
             System.err.print("Step 1:                                                                     \r");
 
         in.release();
-        rout.close();
+        raout.close();
     }
 
-    private void copyWayReplacingIDs(OmaInputStream in) throws IOException
+    private void copyArrayOfNodesReplacingIDs(OmaInputStream in, OmaOutputStream out) throws IOException
     {
-        wout.writeByte('W');
-        copyMetaData(wout, in, false);
-        copyArrayOfNodesReplacingIDs(in,wout,false);
-        copyTags(wout,in);
-    }
-
-    private void copyCollectionReplacingIDs(OmaInputStream in) throws IOException
-    {
-        rout.writeByte('C');
-        copyMetaData(rout, in, true);
-
-        int raz = in.readInt();
-        rout.writeInt(raz);
-        for (int i=0;i<raz;i++)
-        {
-            rout.writeUTF(in.readUTF());
-            rout.writeLong(in.readLong());
-        }
-
-        copyArrayOfNodesReplacingIDs(in,rout,true);
-
-        int waz = in.readInt();
-        rout.writeInt(waz);
-        for (int i=0;i<waz;i++)
-        {
-            rout.writeUTF(in.readUTF());
-            rout.writeByte(in.readByte());
-            rout.writeLong(in.readLong());
-        }
-
-        copyTags(rout,in);
-    }
-
-    private void copyArrayOfNodesReplacingIDs(OmaInputStream in, OmaOutputStream out, boolean role) throws IOException
-    {
-        int naz = in.readInt();
-        out.writeInt(naz);
+        int naz = in.readSmallInt();
+        out.writeSmallInt(naz);
         for (int i=0;i<naz;i++)
+            copyReplacingNodeID(in,out);
+    }
+
+    private void copyMemberReplacingIDs(OmaInputStream in, OmaOutputStream out) throws IOException
+    {
+        int maz = in.readSmallInt();
+        out.writeSmallInt(maz);
+        for (int i=0;i<maz;i++)
         {
-            if (role) out.writeUTF(in.readUTF());
-            long id = in.readLong();
-            if (id>=ID_MARKER)
+            out.writeString(in.readString());
+            byte type = in.readByte();
+            switch (type)
             {
-                int pos = Arrays.binarySearch(nodes_id,0,nodes_c,id-ID_MARKER);
-                if (pos>=0)
-                {
-                    out.writeInt(nodes_lon[pos]);
-                    out.writeInt(nodes_lat[pos]);
-                    continue;
-                }
+            case 'w':
+                out.writeByte('w');
+                out.writeLong(in.readLong());
+                break;
+            case 'n':
+                out.writeByte('n');
+                copyReplacingNodeID(in,out);
+                break;
+            default:
+                System.err.println("unknown type: "+(char)type);
+                System.exit(-1);
             }
-            out.writeLong(id);
         }
+    }
+
+    private void copyReplacingNodeID(OmaInputStream in, OmaOutputStream out) throws IOException
+    {
+        long id = in.readLong();
+        if (id>=ID_MARKER)
+        {
+            int pos = Arrays.binarySearch(ids,0,nodes_c,id-ID_MARKER);
+            if (pos>=0)
+            {
+                out.writeInt(nodes_lon[pos]);
+                out.writeInt(nodes_lat[pos]);
+                return;
+            }
+        }
+        out.writeLong(id);
     }
 
     //////////////////////////////////////////////////////////////////
 
     private void updateWays() throws IOException
     {
-        if (ways==null) return;
-
         if (Oma.verbose>=2)
             System.out.println("  Updating missing ways...");
         if (Oma.verbose>=3)
@@ -899,8 +643,6 @@ public class Reunify
 
         if (missing_ways>0)
             addMissingWays();
-        else
-            wos.release();
 
         if (Oma.verbose>=2)
             System.out.println("    All ways updated.");
@@ -908,7 +650,7 @@ public class Reunify
 
     private void addMissingWays() throws IOException
     {
-        OmaInputStream wis = OmaInputStream.init(wos);
+        OmaInputStream wis = OmaInputStream.init(wout);
         int pass = 0;
         while (true)
         {
@@ -924,11 +666,12 @@ public class Reunify
             if (Oma.verbose>=3)
                 System.out.println("      Pass "+pass+": "+ways_c+" ways read.");
 
-            updateWaysOfOutfile();
+            updateWaysOfRelationWays();
+            updateWaysOfRelationAreas();
 
             if (finished) break;
         }
-        wis.release();
+        wis.close();
     }
 
     private boolean readTmpWays(OmaInputStream wis) throws IOException
@@ -943,109 +686,105 @@ public class Reunify
             while (true)
             {
                 long id = wis.readLong();
-                int az = wis.readInt();
+                if (Oma.preserve_version)
+                    wis.readSmallInt();
+                if (Oma.preserve_timestamp)
+                    wis.readLong();
+                if (Oma.preserve_changeset)
+                    wis.readLong();
+                if (Oma.preserve_user)
+                {
+                    wis.readInt();
+                    wis.readString();
+                }
+
+                int az = wis.readSmallInt();
                 ByteArrayOutputStream baos = new ByteArrayOutputStream(4+8*az);
-                new DataOutputStream(baos).writeInt(az);
+                new OmaOutputStream(baos).writeSmallInt(az);
                 byte[] b = new byte[8*az];
                 wis.readFully(b);
                 baos.write(b);
 
-                ways_id[ways_c] = id;
+                ids[ways_c] = id;
                 ways_data[ways_c] = baos.toByteArray();
                 ways_c++;
 
-                if (ways_c==ways_id.length || Tools.memavail()<Oma.memlimit)
+                az = wis.readSmallInt();
+                for (int i=0;i<2*az;i++)
+                    wis.readString();
+
+                if (ways_c==ids.length || Tools.memavail()<Oma.memlimit)
                     return false;
             }
         }
-        catch (EOFException e)
-        {
-            wis.release();
-            return true;
-        }
+        catch (EOFException e) {}
+
+        return true;
     }
 
-    private void updateWaysOfOutfile() throws IOException
+    private void updateWaysOfRelationWays() throws IOException
     {
-        long fs = rout.fileSize();
-
         Path original = Tools.tmpFile("original");
-        rout.move(original);
+        rwout.move(original);
 
-        OmaInputStream in = OmaInputStream.init(rout);
-        rout = OmaOutputStream.init(rtmp,true);
+        OmaInputStream in = OmaInputStream.init(rwout);
+        rwout = OmaOutputStream.init(rwtmp,true);
 
-        byte type = 0;
-        int c = 0;
-        while (true)
+        for (int i=0;i<rwc;i++)
         {
-            if (!Oma.silent && ++c%10000==0)
-            {
-                long sz = rout.fileSize();
-                // to be improved
-                System.err.printf("Step 1: updating ways of relation file: %.1f%%        \r",100.0/fs*sz);
-            }
+            if (!Oma.silent && i%10000==0)
+                System.err.printf("Step 1: updating ways of way relations: %.1f%%        \r",100.0/rwc*i);
 
-            try {
-                type = in.readByte();
-            } catch (EOFException e) { break; }
-
-            switch (type)
-            {
-                case 'C' -> copyCollectionReplacingWays(in);
-                default ->
-                {
-                    System.err.println("Unknown type: "+type);
-                    System.exit(-1);
-                }
-            }
+            copyMetaData(rwout, in);
+            copyMemberReplacingWays(in, rwout);
+            copyTags(rwout,in);
         }
         if (!Oma.silent)
             System.err.print("Step 1:                                                                      \r");
 
         in.release();
-        rout.close();
+        rwout.close();
+    }
+
+    private void updateWaysOfRelationAreas() throws IOException
+    {
+        Path original = Tools.tmpFile("original");
+        raout.move(original);
+
+        OmaInputStream in = OmaInputStream.init(raout);
+        raout = OmaOutputStream.init(ratmp,true);
+
+        for (int i=0;i<rac;i++)
+        {
+            if (!Oma.silent && i%10000==0)
+                System.err.printf("Step 1: updating ways of area relations: %.1f%%        \r",100.0/rac*i);
+
+            copyMetaData(raout, in);
+            copyMemberReplacingWays(in, raout);
+            copyTags(raout,in);
+        }
+        if (!Oma.silent)
+            System.err.print("Step 1:                                                                      \r");
+
+        in.release();
+        raout.close();
     }
 
     //////////////////////////////////////////////////////////////////
 
-    private void copyCollectionReplacingWays(OmaInputStream in) throws IOException
+    private void copyMemberReplacingWays(OmaInputStream in, OmaOutputStream out) throws IOException
     {
-        rout.writeByte('C');
-        copyMetaData(rout, in,true);
-
-        int raz = in.readInt();
-        rout.writeInt(raz);
-        for (int i=0;i<raz;i++)
+        int maz = in.readSmallInt();
+        out.writeSmallInt(maz);
+        for (int i=0;i<maz;i++)
         {
-            rout.writeUTF(in.readUTF());
-            rout.writeLong(in.readLong());
-        }
-
-        int naz = in.readInt();
-        rout.writeInt(naz);
-        for (int i=0;i<naz;i++)
-        {
-            rout.writeUTF(in.readUTF());
-            rout.writeLong(in.readLong());
-        }
-
-        copyArrayOfWaysReplacingWays(in,rout);
-
-        copyTags(rout,in);
-    }
-
-    private void copyArrayOfWaysReplacingWays(OmaInputStream in, OmaOutputStream out) throws IOException
-    {
-        int waz = in.readInt();
-        out.writeInt(waz);
-        for (int i=0;i<waz;i++)
-        {
-            out.writeUTF(in.readUTF());
-            if (in.readByte()=='w')
+            out.writeString(in.readString());
+            byte type = in.readByte();
+            switch (type)
             {
+            case 'w':
                 long id = in.readLong();
-                int pos = Arrays.binarySearch(ways_id,0,ways_c,id);
+                int pos = Arrays.binarySearch(ids,0,ways_c,id);
                 if (pos>=0)
                 {
                     out.writeByte('W');
@@ -1057,128 +796,30 @@ public class Reunify
                     out.writeByte('w');
                     out.writeLong(id);
                 }
-            }
-            else
-            {
+                break;
+            case 'W':
                 out.writeByte('W');
-                int naz = in.readInt();
-                out.writeInt(naz);
+                int naz = in.readSmallInt();
+                out.writeSmallInt(naz);
                 for (int j=0;j<naz;j++)
                     out.writeLong(in.readLong());
+                break;
+            case 'n':
+                out.writeByte('n');
+                out.writeLong(in.readLong());
+                break;
+            default:
+                System.err.println("unknown type: "+(char)type);
+                System.exit(-1);
             }
         }
     }
 
-    //////////////////////////////////////////////////////////////////
-
-    public void convertRelations() throws IOException
+    private void copyMetaData(OmaOutputStream out, OmaInputStream in) throws IOException
     {
-        if (Oma.verbose>=2)
-            System.out.println("  Converting relations...");
-
-        long fs = rout.fileSize();
-
-        OmaInputStream in = OmaInputStream.init(rout);
-
-        atmp = Tools.tmpFile("a");
-        aout = OmaOutputStream.init(atmp);
-
-        if (Oma.collections)
-        {
-            collections = Tools.tmpFile("collections");
-            cos = OmaOutputStream.init(collections,true);
-        }
-
-        byte type = 0;
-        int c = 0;
-        while (true)
-        {
-            if (!Oma.silent && ++c%10000==0)
-            {
-                /*
-                long sz = cos.fileSize();
-                System.err.printf("Step 1: converting relations: %.1f%%        \r",100.0/fs*sz);
-                 */
-            }
-
-            try {
-                type = in.readByte();
-            } catch (EOFException e) { break; }
-
-            convertRelation(in);
-        }
-        if (!Oma.silent)
-            System.err.print("Step 1:                                                                      \r");
-
-        in.release();
-        if (Oma.collections)
-            cos.close();
-        aout.close();
-    }
-
-    private void convertRelation(OmaInputStream in) throws IOException
-    {
-        Relation r = new Relation(in,true);
-        r.writeDirectElements(out,aout);
-
-        if (!Oma.collections) return;
-
-        if (!r.empty())
-        {
-            missing_colls++;
-
-            for (int i=0;i<r.relrole.length;i++)
-                if (r.relrole[i]!=null)
-                    r.relrole[i]="";
-
-            r.write(cos,false);
-        }
-    }
-
-    private void copyBoundingBox(OmaInputStream in) throws IOException
-    {
-        out.writeByte('B');
         out.writeLong(in.readLong());
-        out.writeLong(in.readLong());
-    }
-
-    private void copyNode(OmaInputStream in) throws IOException
-    {
-        out.writeByte('N');
-        copyMetaData(out, in, false);
-
-        out.writeLong(in.readLong());
-
-        copyTags(out,in);
-    }
-
-    private void copyWay(OmaInputStream in) throws IOException
-    {
-        out.writeByte('W');
-        copyMetaData(out, in, false);
-
-        int naz = in.readInt();
-        out.writeInt(naz);
-        for (int i=0;i<naz;i++)
-            out.writeLong(in.readLong());
-
-        copyTags(out,in);
-    }
-
-    private void copyTags(OmaOutputStream out, OmaInputStream in) throws IOException
-    {
-        int taz = in.readInt();
-        out.writeInt(taz);
-        for (int i=0;i<2*taz;i++)
-            out.writeUTF(in.readUTF());
-    }
-
-    private void copyMetaData(OmaOutputStream out, OmaInputStream in, boolean preserve_id) throws IOException
-    {
-        if (preserve_id || Oma.preserve_id)
-            out.writeLong(in.readLong());
         if (Oma.preserve_version)
-            out.writeInt(in.readInt());
+            out.writeSmallInt(in.readSmallInt());
         if (Oma.preserve_timestamp)
             out.writeLong(in.readLong());
         if (Oma.preserve_changeset)
@@ -1186,237 +827,498 @@ public class Reunify
         if (Oma.preserve_user)
         {
             out.writeInt(in.readInt());
-            out.writeUTF(in.readUTF());
+            out.writeString(in.readString());
         }
+    }
+
+    private void copyTags(OmaOutputStream out, OmaInputStream in) throws IOException
+    {
+        int taz = in.readSmallInt();
+        out.writeSmallInt(taz);
+        for (int i=0;i<2*taz;i++)
+            out.writeString(in.readString());
     }
 
     //////////////////////////////////////////////////////////////////
 
-    public void updateCollections() throws IOException
+    private void addMembers() throws IOException
     {
         if (Oma.verbose>=2)
-            System.out.println("  Updating collections, adding missing relations...");
-        if (Oma.verbose>=3)
-            System.out.println("      Collections to update: "+Tools.humanReadable(missing_colls)+".");
+            System.out.println("  Adding members...");
 
-        colls_updated = 0;
-        addMissingRelations();
+        readMembers('n');
+        addNodes();
+        readMembers('w');
+        addWays();
+        readMembers('r');
+        addRelationWays();
+        addRelationAreas();
+        addCollections();
 
         if (Oma.verbose>=2)
-            System.out.println("    All collections updated.");
+            System.out.println("    All members added.");
     }
 
-    private void addMissingRelations() throws IOException
+    private void readMembers(char type) throws IOException
     {
-        int pass = 0;
-        while (true)
+        members = new HashMap<>();
+
+        OmaInputStream in = OmaInputStream.init(rcout);
+
+        for (int j=0;j<rcc;j++)
         {
-            if (!Oma.silent)
-                System.err.printf("Step 1: reading new collections                            \r");
-
-            pass++;
-            boolean finished = readCollections();
-
-            if (!Oma.silent)
-                System.err.printf("                                                           \r");
-
-            if (Oma.verbose>=3)
-                System.out.println("      Pass "+pass+": "+colls_c+" collections read.");
-
-            updateRelationsOfCollections();
-            colls_updated += colls_c;
-
-            if (finished) break;
-        }
-    }
-
-    private boolean readCollections() throws IOException
-    {
-        colls_c = 0;
-        for (int i=0;i<colls_data.length;i++)
-            colls_data[i] = null;
-        Tools.gc();
-
-        OmaInputStream in = OmaInputStream.init(cos);
-        for (int i=0;i<colls_updated;i++)
-            new Relation(in,true);
-        Tools.gc();
-
-        while (true)
-        {
-            colls_data[colls_c] = new Relation(in,true);
-            colls_id[colls_c] = colls_data[colls_c].id;
-            colls_c++;
-
-            if (colls_updated+colls_c==missing_colls)
+            long rid = in.readLong();
+            if (Oma.preserve_version)
+                in.readSmallInt();
+            if (Oma.preserve_timestamp)
+                in.readLong();
+            if (Oma.preserve_changeset)
+                in.readLong();
+            if (Oma.preserve_user)
             {
-                in.close();
-                return true;
+                in.readInt();
+                in.readString();
             }
 
-            if (colls_c==colls_id.length || Tools.memavail()<Oma.memlimit)
+            int maz = in.readSmallInt();
+            for (int i=0;i<maz;i++)
             {
-                in.close();
-                return false;
-            }
-        }
-    }
+                String role = in.readString();
+                byte mtype = in.readByte();
+                long id = in.readLong();
 
-    private void updateRelationsOfCollections() throws IOException
-    {
-        Path original = Tools.tmpFile("original");
-        cos.move(original);
-
-        OmaInputStream in = OmaInputStream.init(cos);
-        cos = OmaOutputStream.init(collections,true);
-
-        for (long i=0;i<missing_colls;i++)
-        {
-            if (!Oma.silent && i%1000==0)
-                System.err.printf("Step 1: updating collections: %.1f%%        \r",100.0/missing_colls*i);
-
-            List<Long> relid = new ArrayList<>();
-
-            for (int j=0;j<colls_id.length;j++)
-                colls_used[j] = false;
-
-            copyMetaData(cos,in,true);
-
-            int raz = in.readInt();
-            for (int j=0;j<raz;j++)
-            {
-                in.readUTF();
-                addRelid(in.readLong(),relid);
-            }
-
-            int mraz = 0;
-            for (long id: relid)
-            {
-                int pos = Arrays.binarySearch(colls_id,0,colls_c,id);
-                if (pos<0)
-                    mraz++;
-            }
-            cos.writeInt(mraz);
-            for (long id: relid)
-            {
-                int pos = Arrays.binarySearch(colls_id,0,colls_c,id);
-                if (pos<0)
+                if (type==mtype)
                 {
-                    cos.writeUTF("");
-                    cos.writeLong(id);
+                    List<Member> m = members.get(id);
+                    if (m==null)
+                        m = new ArrayList<>();
+                    m.add(new Member(rid,role,i));
+                    members.put(id,m);
                 }
             }
 
-            int mnaz = 0;
-            for (long id: relid)
+            int taz = in.readSmallInt();
+            for (int i=0;i<2*taz;i++)
+                in.readString();
+        }
+        in.close();
+    }
+
+    private void addNodes() throws IOException
+    {
+        OmaInputStream in = OmaInputStream.init(nout);
+
+        for (int i=0;i<nc;i++)
+        {
+            if (!Oma.silent && i%10000==0)
+                System.err.printf("Step 1: adding members: %.1f%% (nodes)       \r",100.0/(nc+wc+rwc+rac+rcc)*i);
+
+            long id = in.readLong();
+            List<Member> mlist = members.get(id);
+            int version = Oma.preserve_version?in.readSmallInt():0;
+            long timestamp = Oma.preserve_timestamp?in.readLong():0;
+            long changeset = Oma.preserve_changeset?in.readLong():0;
+            int uid = Oma.preserve_user?in.readInt():0;
+            String user = Oma.preserve_user?in.readString():null;
+
+            long lonlat = in.readLong();
+
+            int taz = in.readSmallInt();
+
+            if (taz==0 && mlist==null) continue;
+
+            out.writeByte('N');
+            if (Oma.preserve_id)
+                out.writeLong(id);
+            if (Oma.preserve_version)
+                out.writeSmallInt(version);
+            if (Oma.preserve_timestamp)
+                out.writeLong(timestamp);
+            if (Oma.preserve_changeset)
+                out.writeLong(changeset);
+            if (Oma.preserve_user)
             {
-                int pos = Arrays.binarySearch(colls_id,0,colls_c,id);
-                if (pos>=0)
-                    mnaz += colls_data[pos].node.length;
-            }
-            int naz = in.readInt();
-            cos.writeInt(naz+mnaz);
-            for (int j=0;j<naz;j++)
-            {
-                cos.writeUTF(in.readUTF());
-                cos.writeLong(in.readLong());
-            }
-            for (long id: relid)
-            {
-                int pos = Arrays.binarySearch(colls_id,0,colls_c,id);
-                if (pos>=0)
-                    for (int j=0;j<colls_data[pos].node.length;j++)
-                    {
-                        cos.writeUTF(colls_data[pos].noderole[j]);
-                        cos.writeInt(colls_data[pos].node[j].lon);
-                        cos.writeInt(colls_data[pos].node[j].lat);
-                    }
+                out.writeInt(uid);
+                out.writeString(user);
             }
 
-            int mwaz = 0;
-            for (long id: relid)
-            {
-                int pos = Arrays.binarySearch(colls_id,0,colls_c,id);
-                if (pos>=0)
-                    mwaz += colls_data[pos].way.length;
-            }
-            int waz = in.readInt();
-            cos.writeInt(waz+mwaz);
-            for (int j=0;j<waz;j++)
-            {
-                cos.writeUTF(in.readUTF());
-                cos.writeByte(in.readByte());
-                int wnaz = in.readInt();
-                cos.writeInt(wnaz);
-                for (int k=0;k<wnaz;k++)
-                    cos.writeLong(in.readLong());
-            }
-            for (long id: relid)
-            {
-                int pos = Arrays.binarySearch(colls_id,0,colls_c,id);
-                if (pos>=0)
-                    for (int j=0;j<colls_data[pos].way.length;j++)
-                    {
-                        cos.writeUTF(colls_data[pos].wayrole[j]);
-                        cos.writeByte('W');
-                        cos.writeInt(colls_data[pos].way[j].lon.length);
-                        for (int k=0;k<colls_data[pos].way[j].lon.length;k++)
-                        {
-                            cos.writeInt(colls_data[pos].way[j].lon[k]);
-                            cos.writeInt(colls_data[pos].way[j].lat[k]);
-                        }
-                    }
-            }
+            out.writeLong(lonlat);
 
-            copyTags(cos,in);
+            out.writeSmallInt(taz);
+            for (int j=0;j<2*taz;j++)
+                out.writeString(in.readString());
+
+            if (mlist==null)
+                out.writeSmallInt(0);
+            else
+            {
+                out.writeSmallInt(mlist.size());
+                for (Member m:mlist)
+                {
+                    out.writeLong(m.id);
+                    out.writeString(m.role);
+                    out.writeSmallInt(m.nr);
+                }
+            }
         }
         if (!Oma.silent)
             System.err.print("Step 1:                                                                      \r");
 
         in.release();
-        cos.close();
     }
-
-    private void addRelid(long id, List<Long> relid)
-    {
-        int pos = Arrays.binarySearch(colls_id,0,colls_c,id);
-        if (pos<0 || !colls_used[pos])
-        {
-            relid.add(id);
-            if (pos>=0)
-            {
-                colls_used[pos] = true;
-                for (long id2: colls_data[pos].relid)
-                    addRelid(id2,relid);
-            }
-        }
-    }
-
-    //////////////////////////////////////////////////////////////////
 
     private void addWays() throws IOException
     {
-        wout.close();
         OmaInputStream in = OmaInputStream.init(wout);
-        out.copyFrom(in,wout.fileSize());
+
+        for (int i=0;i<wc;i++)
+        {
+            if (!Oma.silent && i%10000==0)
+                System.err.printf("Step 1: adding members: %.1f%% (ways)       \r",100.0/(nc+wc+rwc+rac+rcc)*(nc+i));
+
+            long id = in.readLong();
+            List<Member> mlist = members.get(id);
+            int version = Oma.preserve_version?in.readSmallInt():0;
+            long timestamp = Oma.preserve_timestamp?in.readLong():0;
+            long changeset = Oma.preserve_changeset?in.readLong():0;
+            int uid = Oma.preserve_user?in.readInt():0;
+            String user = Oma.preserve_user?in.readString():null;
+
+            int naz = in.readSmallInt();
+            long[] lonlat = new long[naz];
+            for (int j=0;j<naz;j++)
+                lonlat[j] = in.readLong();
+
+            int taz = in.readSmallInt();
+
+            if (taz==0 && mlist==null) continue;
+
+            out.writeByte('W');
+            if (Oma.preserve_id)
+                out.writeLong(id);
+            if (Oma.preserve_version)
+                out.writeSmallInt(version);
+            if (Oma.preserve_timestamp)
+                out.writeLong(timestamp);
+            if (Oma.preserve_changeset)
+                out.writeLong(changeset);
+            if (Oma.preserve_user)
+            {
+                out.writeInt(uid);
+                out.writeString(user);
+            }
+
+            out.writeSmallInt(naz);
+            for (int j=0;j<naz;j++)
+                out.writeLong(lonlat[j]);
+
+            out.writeSmallInt(taz);
+            for (int j=0;j<2*taz;j++)
+                out.writeString(in.readString());
+
+            if (mlist==null)
+                out.writeSmallInt(0);
+            else
+            {
+                out.writeSmallInt(mlist.size());
+                for (Member m:mlist)
+                {
+                    out.writeLong(m.id);
+                    out.writeString(m.role);
+                    out.writeSmallInt(m.nr);
+                }
+            }
+        }
+        if (!Oma.silent)
+            System.err.print("Step 1:                                                                      \r");
+
         in.release();
     }
 
-    private void addAreas() throws IOException
+    private void addRelationWays() throws IOException
     {
-        OmaInputStream in = OmaInputStream.init(aout);
-        out.copyFrom(in,aout.fileSize());
+        OmaInputStream in = OmaInputStream.init(rwout);
+
+        for (int i=0;i<rwc;i++)
+        {
+            if (!Oma.silent && i%10000==0)
+                System.err.printf("Step 1: adding members: %.1f%% (ways)       \r",100.0/(nc+wc+rwc+rac+rcc)*(nc+wc+i));
+
+            long id = in.readLong();
+            List<Member> mlist = members.get(id);
+            int version = Oma.preserve_version?in.readSmallInt():0;
+            long timestamp = Oma.preserve_timestamp?in.readLong():0;
+            long changeset = Oma.preserve_changeset?in.readLong():0;
+            int uid = Oma.preserve_user?in.readInt():0;
+            String user = Oma.preserve_user?in.readString():null;
+
+            FromTo f = new FromTo();
+            int maz = in.readSmallInt();
+            for (int j=0;j<maz;j++)
+            {
+                String role = in.readString();
+                byte type = in.readByte();
+                if (type=='W')
+                {
+                    Way w = new Way();
+                    int naz = in.readSmallInt();
+                    int[] lon = new int[naz];
+                    int[] lat = new int[naz];
+                    for (int l=0;l<naz;l++)
+                    {
+                        lon[l] = in.readInt();
+                        lat[l] = in.readInt();
+                    }
+                    w.lon = lon;
+                    w.lat = lat;
+
+                    if ("from".equals(role))
+                        f.addFrom(w);
+                    else if ("to".equals(role))
+                        f.addTo(w);
+                    else
+                        f.addVia(w);
+                    continue;
+                }
+                if (type=='n')
+                {
+                    Node n = new Node();
+                    n.lon = in.readInt();
+                    n.lat = in.readInt();
+                    f.addVia(n);
+                    continue;
+                }
+                in.readLong();
+            }
+
+
+            int taz = in.readSmallInt();
+            String[] tags = new String[2*taz];
+            for (int j=0;j<2*taz;j++)
+                tags[j] = in.readString();
+
+            f.createWays();
+
+            for (Way w:f.ways)
+            {
+                out.writeByte('W');
+                if (Oma.preserve_id)
+                    out.writeLong(id);
+                if (Oma.preserve_version)
+                    out.writeSmallInt(version);
+                if (Oma.preserve_timestamp)
+                    out.writeLong(timestamp);
+                if (Oma.preserve_changeset)
+                    out.writeLong(changeset);
+                if (Oma.preserve_user)
+                {
+                    out.writeInt(uid);
+                    out.writeString(user);
+                }
+
+                out.writeSmallInt(w.lon.length);
+                for (int j=0;j<w.lon.length;j++)
+                {
+                    out.writeInt(w.lon[j]);
+                    out.writeInt(w.lat[j]);
+                }
+
+                out.writeSmallInt(taz);
+                for (int j=0;j<2*taz;j++)
+                    out.writeString(tags[j]);
+
+                if (mlist==null)
+                    out.writeSmallInt(0);
+                else
+                {
+                    out.writeSmallInt(mlist.size());
+                    for (Member m:mlist)
+                    {
+                        out.writeLong(m.id);
+                        out.writeString(m.role);
+                        out.writeSmallInt(m.nr);
+                    }
+                }
+            }
+        }
+        if (!Oma.silent)
+            System.err.print("Step 1:                                                                      \r");
+
+        in.release();
+    }
+
+    private void addRelationAreas() throws IOException
+    {
+        OmaInputStream in = OmaInputStream.init(raout);
+
+        for (int i=0;i<rac;i++)
+        {
+            if (!Oma.silent && i%10000==0)
+                System.err.printf("Step 1: adding members: %.1f%% (areas)       \r",100.0/(nc+wc+rwc+rac+rcc)*(nc+wc+rwc+i));
+
+            long id = in.readLong();
+            List<Member> mlist = members.get(id);
+            int version = Oma.preserve_version?in.readSmallInt():0;
+            long timestamp = Oma.preserve_timestamp?in.readLong():0;
+            long changeset = Oma.preserve_changeset?in.readLong():0;
+            int uid = Oma.preserve_user?in.readInt():0;
+            String user = Oma.preserve_user?in.readString():null;
+
+            Multipolygon mp = new Multipolygon();
+            int maz = in.readSmallInt();
+            for (int j=0;j<maz;j++)
+            {
+                String role = in.readString();
+                byte type = in.readByte();
+                if (type=='W')
+                {
+                    int naz = in.readSmallInt();
+                    int[] lon = new int[naz];
+                    int[] lat = new int[naz];
+                    for (int l=0;l<naz;l++)
+                    {
+                        lon[l] = in.readInt();
+                        lat[l] = in.readInt();
+                    }
+
+                    mp.add(lon,lat,"inner".equals(role));
+                    continue;
+                }
+                in.readLong();
+            }
+
+            int taz = in.readSmallInt();
+            String[] tags = new String[2*taz];
+            for (int j=0;j<2*taz;j++)
+                tags[j] = in.readString();
+
+            mp.createRings();
+            mp.sortRings();
+
+            for (Area a:mp.areas)
+            {
+                out.writeByte('A');
+                if (Oma.preserve_id)
+                    out.writeLong(id);
+                if (Oma.preserve_version)
+                    out.writeSmallInt(version);
+                if (Oma.preserve_timestamp)
+                    out.writeLong(timestamp);
+                if (Oma.preserve_changeset)
+                    out.writeLong(changeset);
+                if (Oma.preserve_user)
+                {
+                    out.writeInt(uid);
+                    out.writeString(user);
+                }
+
+                out.writeSmallInt(a.lon.length-1);
+                for (int j=0;j<a.lon.length-1;j++)
+                {
+                    out.writeInt(a.lon[j]);
+                    out.writeInt(a.lat[j]);
+                }
+                out.writeSmallInt(a.h_lon.length);
+                for (int j=0;j<a.h_lon.length;j++)
+                {
+                    out.writeSmallInt(a.h_lon[j].length-1);
+                    for (int k=0;k<a.h_lon[j].length-1;k++)
+                    {
+                        out.writeInt(a.h_lon[j][k]);
+                        out.writeInt(a.h_lat[j][k]);
+                    }
+                }
+
+                out.writeSmallInt(taz);
+                for (int j=0;j<2*taz;j++)
+                    out.writeString(tags[j]);
+
+                if (mlist==null)
+                    out.writeSmallInt(0);
+                else
+                {
+                    out.writeSmallInt(mlist.size());
+                    for (Member m:mlist)
+                    {
+                        out.writeLong(m.id);
+                        out.writeString(m.role);
+                        out.writeSmallInt(m.nr);
+                    }
+                }
+            }
+        }
+        if (!Oma.silent)
+            System.err.print("Step 1:                                                                      \r");
+
         in.release();
     }
 
     private void addCollections() throws IOException
     {
-        OmaInputStream in = OmaInputStream.init(cos);
-        for (int i=0;i<missing_colls;i++)
+        OmaInputStream in = OmaInputStream.init(rcout);
+
+        for (int i=0;i<rcc;i++)
         {
-            Relation r = new Relation(in,true);
-            r.write(out,true);
+            if (!Oma.silent && i%10000==0)
+                System.err.printf("Step 1: adding members: %.1f%% (collections)       \r",100.0/(nc+wc+rwc+rac+rcc)*(nc+wc+rwc+rac+i));
+
+            long id = in.readLong();
+            List<Member> mlist = members.get(id);
+            int version = Oma.preserve_version?in.readSmallInt():0;
+            long timestamp = Oma.preserve_timestamp?in.readLong():0;
+            long changeset = Oma.preserve_changeset?in.readLong():0;
+            int uid = Oma.preserve_user?in.readInt():0;
+            String user = Oma.preserve_user?in.readString():null;
+
+            int maz = in.readSmallInt();
+            for (int j=0;j<maz;j++)
+            {
+                in.readString();
+                in.readByte();
+                in.readLong();
+            }
+
+            int taz = in.readSmallInt();
+            String[] tags = new String[2*taz];
+            for (int j=0;j<2*taz;j++)
+                tags[j] = in.readString();
+
+            out.writeByte('C');
+            out.writeLong(id);
+            if (Oma.preserve_version)
+                out.writeSmallInt(version);
+            if (Oma.preserve_timestamp)
+                out.writeLong(timestamp);
+            if (Oma.preserve_changeset)
+                out.writeLong(changeset);
+            if (Oma.preserve_user)
+            {
+                out.writeInt(uid);
+                out.writeString(user);
+            }
+
+            Bounds.getNoBounds().write(out);
+
+            out.writeSmallInt(taz);
+            for (int j=0;j<2*taz;j++)
+                out.writeString(tags[j]);
+
+            if (mlist==null)
+                out.writeSmallInt(0);
+            else
+            {
+                out.writeSmallInt(mlist.size());
+                for (Member m:mlist)
+                {
+                    out.writeLong(m.id);
+                    out.writeString(m.role);
+                    out.writeSmallInt(m.nr);
+                }
+            }
         }
+        if (!Oma.silent)
+            System.err.print("Step 1:                                                                      \r");
+
         in.release();
     }
 }
