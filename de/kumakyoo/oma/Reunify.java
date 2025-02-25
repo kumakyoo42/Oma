@@ -1297,7 +1297,7 @@ public class Reunify
                 out.writeString(user);
             }
 
-            Bounds.getNoBounds().write(out);
+            out.writeSmallInt(0);
 
             out.writeSmallInt(taz);
             for (int j=0;j<2*taz;j++)

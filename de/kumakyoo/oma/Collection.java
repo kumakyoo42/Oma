@@ -4,12 +4,9 @@ import java.io.*;
 
 public class Collection extends ElementWithID
 {
-    Bounds b;
-
     public Collection(OmaInputStream in, int features) throws IOException
     {
-        b = new Bounds(in);
-
+        in.readSmallInt();
         readTags(in);
         readMembers(in);
         readMetaData(in,features|2);
@@ -17,7 +14,7 @@ public class Collection extends ElementWithID
 
     public void writeGeo(OmaOutputStream out) throws IOException
     {
-        b.write(out);
+        out.writeSmallInt(0);
     }
 
     public void writeMetaData(OmaOutputStream out, int features) throws IOException

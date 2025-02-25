@@ -344,20 +344,10 @@ public class ChunkGenerator
         }
         else if (type=='C')
         {
-            int[] lon = new int[2];
-            int[] lat = new int[2];
+            in.readSmallInt();
+            out.writeSmallInt(0);
 
-            lon[0] = in.readInt();
-            lat[0] = in.readInt();
-            lon[1] = in.readInt();
-            lat[1] = in.readInt();
-
-            chunk = getFirstChunk(lon,lat);
-
-            out.writeInt(lon[0]);
-            out.writeInt(lat[0]);
-            out.writeInt(lon[1]);
-            out.writeInt(lat[1]);
+            chunk = bounds.size();
         }
 
         copyTags(in,out);
