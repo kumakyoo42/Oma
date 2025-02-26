@@ -15,7 +15,7 @@ public class OSMMember
 
     public OSMMember(char type, long ref, String role)
     {
-        this.type = ""+type;
+        this.type = Character.toString(type);
         this.ref = ref;
         this.role = role;
     }

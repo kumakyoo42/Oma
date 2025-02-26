@@ -1,8 +1,14 @@
 package de.kumakyoo.oma;
 
-import java.io.*;
-import java.nio.file.*;
-import java.util.*;
+import java.io.IOException;
+import java.io.EOFException;
+import java.io.ByteArrayOutputStream;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Arrays;
 
 public class Reunify
 {
@@ -30,7 +36,6 @@ public class Reunify
     private OmaOutputStream out;
     private OmaOutputStream nout;
     private OmaOutputStream wout;
-    private OmaOutputStream aout;
     private OmaOutputStream rwout;
     private OmaOutputStream raout;
     private OmaOutputStream rcout;
@@ -115,15 +120,14 @@ public class Reunify
 
                 ids = new long[max];
 
-                switch (type)
+                if ("nodes".equals(type))
                 {
-                    case "nodes" ->
-                    {
-                        nodes_lon = new int[max];
-                        nodes_lat = new int[max];
-                    }
-                    case "ways" -> ways_data = new byte[max][];
+                    nodes_lon = new int[max];
+                    nodes_lat = new int[max];
                 }
+                else if ("ways".equals(type))
+                    ways_data = new byte[max][];
+
                 break;
             }
             catch (OutOfMemoryError e)

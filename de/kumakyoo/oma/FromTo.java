@@ -1,6 +1,9 @@
 package de.kumakyoo.oma;
 
-import java.util.*;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 
 public class FromTo
 {
@@ -56,9 +59,9 @@ public class FromTo
     {
         ways = new ArrayList<>();
 
-        if (to.size()==0) return;
+        if (to.isEmpty()) return;
 
-        if (via.size()==0)
+        if (via.isEmpty())
         {
             Point k1 = to.get(0)[0];
             Point k2 = to.get(0)[to.get(0).length-1];
@@ -112,7 +115,7 @@ public class FromTo
             if (!way.get(way.size()-1).equals(t[0])) continue;
             way.add(t[1]);
 
-            if (from.size()==0)
+            if (from.isEmpty())
             {
                 Way w = new Way();
                 w.lon = new int[way.size()+1];
@@ -160,8 +163,8 @@ public class FromTo
         boolean[] used = new boolean[via.size()];
 
         Point[] h = via.get(0);
-        for (int i=0;i<h.length;i++)
-            w.add(h[i]);
+        for (Point p:h)
+            w.add(p);
         used[0] = true;
 
         if (via.size()==1) return w;

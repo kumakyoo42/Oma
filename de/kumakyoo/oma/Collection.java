@@ -1,6 +1,6 @@
 package de.kumakyoo.oma;
 
-import java.io.*;
+import java.io.IOException;
 
 public class Collection extends ElementWithID
 {

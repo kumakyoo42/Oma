@@ -1,9 +1,12 @@
 package de.kumakyoo.oma;
 
 import java.util.Map;
-import java.util.*;
-import java.util.stream.*;
-import java.io.*;
+import java.util.HashMap;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.stream.Stream;
+import java.util.stream.Collectors;
+import java.io.IOException;
 
 public class ElementWithID extends Element
 {
@@ -141,11 +144,11 @@ public class ElementWithID extends Element
     public void writeMembers(OmaOutputStream out) throws IOException
     {
         out.writeSmallInt(members.length);
-        for (int i=0;i<members.length;i++)
+        for (Member member:members)
         {
-            out.writeLong(members[i].id);
-            out.writeString(members[i].role);
-            out.writeSmallInt(members[i].nr);
+            out.writeLong(member.id);
+            out.writeString(member.role);
+            out.writeSmallInt(member.nr);
         }
     }
 

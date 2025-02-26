@@ -1,9 +1,17 @@
 package de.kumakyoo.oma;
 
-import java.io.*;
-import java.nio.file.*;
-import java.util.*;
-import java.util.zip.*;
+import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.BufferedOutputStream;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.Iterator;
+import java.util.Arrays;
+import java.util.zip.Deflater;
+import java.util.zip.DeflaterOutputStream;
 
 public class TypeAnalysis
 {
@@ -65,7 +73,6 @@ public class TypeAnalysis
         List<List<String>> ex = new ArrayList<>();
         List<String> lc = new ArrayList<>();
         lc.add("");
-        List<String[]> ch = new ArrayList<>();
 
         List<String> values = null;
         List<String> avalues = null;
@@ -80,7 +87,7 @@ public class TypeAnalysis
         {
             String line = b.readLine();
             if (line==null) break;
-            if (line.trim().length()==0) continue;
+            if (line.isBlank()) continue;
             if (line.charAt(0)=='#') continue;
 
             if (line.startsWith("      "))
@@ -169,7 +176,7 @@ public class TypeAnalysis
         }
         isArea = new boolean[ia.size()];
         for (int i=0;i<ia.size();i++)
-            isArea[i] = ia.get(i).booleanValue();
+            isArea[i] = ia.get(i);
         exceptions = new String[ex.size()][];
         for (int i=0;i<ex.size();i++)
         {
@@ -361,7 +368,7 @@ public class TypeAnalysis
 
         boolean empty = true;
         for (int i=0;i<count;i++)
-            empty &= handleNextElement(i, type, split, in, keys, block, b);
+            empty &= handleNextElement(type, split, in, keys, block, b);
 
         if (empty)
             outChunks.remove(outChunks.size()-1);
@@ -385,7 +392,7 @@ public class TypeAnalysis
         splitin.release();
     }
 
-    private boolean handleNextElement(int i, byte type, boolean split,
+    private boolean handleNextElement(byte type, boolean split,
                                       OmaInputStream in,
                                       String[] keys,
                                       List<List<ElementWithID>> block, Bounds b) throws IOException
@@ -467,7 +474,7 @@ public class TypeAnalysis
         if ("yes".equals(area)) return true;
         if ("no".equals(area)) return false;
         if (j==-1) return false;
-        return isArea[j] != (Arrays.asList(exceptions[j]).contains(e.tags.get(wayKeys[j])));
+        return isArea[j] != Arrays.asList(exceptions[j]).contains(e.tags.get(wayKeys[j]));
     }
 
     private void writeBlocks(String[] keys, byte type, List<List<ElementWithID>> block) throws IOException
@@ -480,14 +487,14 @@ public class TypeAnalysis
         int count = 0;
         for (int i=0;i<keys.length;i++)
         {
-            if (block.get(i).size()==0) continue;
+            if (block.get(i).isEmpty()) continue;
             start[i] = out.getPosition();
             reorganizeBlock(block.get(i),type=='N'?nodeKeys[i]:wayKeys[i],type=='N'?nodeValues[i]:(type=='W'?wayValues[i]:areaValues[i]));
             count++;
         }
 
         int other = keys.length;
-        if (block.get(other).size()>0)
+        if (block.get(other).isEmpty())
         {
             start[other] = out.getPosition();
             writeOtherBlock(block.get(other));
@@ -557,7 +564,7 @@ public class TypeAnalysis
             count++;
         }
 
-        if (block.size()>0)
+        if (!block.isEmpty())
         {
             start[values.length] = out.getPosition();
             writeSlice(block,null,null);

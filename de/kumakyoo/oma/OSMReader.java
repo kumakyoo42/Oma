@@ -1,7 +1,7 @@
 package de.kumakyoo.oma;
 
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Path;
 
 abstract public class OSMReader
 {

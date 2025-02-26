@@ -2,11 +2,12 @@ package de.kumakyoo.oma;
 
 import java.util.List;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.StringTokenizer;
-import java.util.HashMap;
-import java.io.*;
-import java.nio.file.*;
+import java.io.IOException;
+import java.io.EOFException;
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.nio.file.Path;
 
 public class ChunkGenerator
 {
@@ -29,8 +30,6 @@ public class ChunkGenerator
     private int features;
 
     private byte[] buffer = new byte[1000000];
-
-    private boolean free_message_shown = false;
 
     public ChunkGenerator(String bbs, OmaOutputStream infile, Path outfile)
     {
@@ -108,7 +107,6 @@ public class ChunkGenerator
         long fs = infile.fileSize();
         OmaInputStream in = OmaInputStream.init(infile);
 
-        int chunk = -1;
         byte type = 0;
         byte last = ' ';
 
@@ -147,8 +145,8 @@ public class ChunkGenerator
         writeChunkTable(bb);
         out.close();
 
-        for (int i=0;i<cout.length;i++)
-            cout[i].release();
+        for (OmaOutputStream out:cout)
+            out.release();
 
         if (Oma.verbose>=2)
             System.out.println("    Splitting was successful ("+chunktable.size()+" chunks).");

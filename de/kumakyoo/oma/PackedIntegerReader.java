@@ -1,6 +1,7 @@
 package de.kumakyoo.oma;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.DataInputStream;
 
 abstract public class PackedIntegerReader extends OSMReader
 {

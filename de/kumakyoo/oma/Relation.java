@@ -1,7 +1,10 @@
 package de.kumakyoo.oma;
 
-import java.util.*;
-import java.io.*;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
+import java.io.IOException;
 
 public class Relation extends ElementWithID
 {
@@ -43,154 +46,6 @@ public class Relation extends ElementWithID
             ctags.add(ctag);
         }
     }
-
-    /*
-    public void writeDirectElements(OmaOutputStream out, OmaOutputStream aout) throws IOException
-    {
-        String type = tags.get("type");
-
-        if ("multipolygon".equals(type) || "boundary".equals(type))
-            writeAreas(aout);
-
-        if ("restriction".equals(type) || "destination_sign".equals(type))
-            writeFromToWays(out);
-    }
-
-    private void writeAreas(OmaOutputStream out) throws IOException
-    {
-        Multipolygon mp = new Multipolygon();
-
-        for (int i=0;i<way.length;i++)
-            if (way[i]!=null && ("inner".equals(wayrole[i]) || "outer".equals(wayrole[i])))
-            {
-                mp.add(way[i].lon,way[i].lat,"inner".equals(wayrole[i]));
-                way[i] = null;
-            }
-
-        mp.createRings();
-        mp.sortRings();
-
-        for (Area a:mp.areas)
-        {
-            out.writeByte('A');
-            if (Oma.preserve_id)
-                out.writeLong(id);
-            if (Oma.preserve_version)
-                out.writeInt(version);
-            if (Oma.preserve_timestamp)
-                out.writeLong(timestamp);
-            if (Oma.preserve_changeset)
-                out.writeLong(changeset);
-            if (Oma.preserve_user)
-            {
-                out.writeInt(uid);
-                out.writeUTF(user);
-            }
-
-            out.writeInt(a.lon.length-1);
-            for (int i=0;i<a.lon.length-1;i++)
-            {
-                out.writeInt(a.lon[i]);
-                out.writeInt(a.lat[i]);
-            }
-            out.writeInt(a.h_lon.length);
-            for (int j=0;j<a.h_lon.length;j++)
-            {
-                out.writeInt(a.h_lon[j].length-1);
-                for (int i=0;i<a.h_lon[j].length-1;i++)
-                {
-                    out.writeInt(a.h_lon[j][i]);
-                    out.writeInt(a.h_lat[j][i]);
-                }
-            }
-
-            out.writeInt(tags.size());
-            for (String key:tags.keySet())
-            {
-                out.writeUTF(key);
-                out.writeUTF(tags.get(key));
-            }
-        }
-    }
-
-    private void writeFromToWays(OmaOutputStream out) throws IOException
-    {
-        FromTo f = new FromTo();
-
-        for (int i=0;i<way.length;i++)
-        {
-            if (way[i]!=null && "from".equals(wayrole[i]))
-            {
-                f.addFrom(way[i]);
-                way[i] = null;
-            }
-            if (way[i]!=null && "to".equals(wayrole[i]))
-            {
-                f.addTo(way[i]);
-                way[i] = null;
-            }
-            if (way[i]!=null && ("via".equals(wayrole[i]) || "intersection".equals(wayrole[i])))
-            {
-                f.addVia(way[i]);
-                way[i] = null;
-            }
-        }
-
-        for (int i=0;i<node.length;i++)
-            if (node[i]!=null && ("via".equals(noderole[i]) || "intersection".equals(noderole[i])))
-            {
-                f.addVia(node[i]);
-                node[i] = null;
-            }
-
-        f.createWays();
-
-        for (Way w:f.ways)
-        {
-            out.writeByte('W');
-            if (Oma.preserve_id)
-                out.writeLong(id);
-            if (Oma.preserve_version)
-                out.writeInt(version);
-            if (Oma.preserve_timestamp)
-                out.writeLong(timestamp);
-            if (Oma.preserve_changeset)
-                out.writeLong(changeset);
-            if (Oma.preserve_user)
-            {
-                out.writeInt(uid);
-                out.writeUTF(user);
-            }
-
-            out.writeInt(w.lon.length);
-            for (int i=0;i<w.lon.length;i++)
-            {
-                out.writeInt(w.lon[i]);
-                out.writeInt(w.lat[i]);
-            }
-
-            out.writeInt(tags.size());
-            for (String key:tags.keySet())
-            {
-                out.writeUTF(key);
-                out.writeUTF(tags.get(key));
-            }
-        }
-    }
-
-    public boolean empty()
-    {
-        for (Node n:node)
-            if (n!=null)
-                return false;
-
-        for (Way w:way)
-            if (w!=null)
-                return false;
-
-        return relid.length==0;
-    }
-     */
 
     public void write(OmaOutputStream out, boolean preserve_id) throws IOException
     {

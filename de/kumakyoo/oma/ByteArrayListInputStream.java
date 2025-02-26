@@ -1,7 +1,7 @@
 package de.kumakyoo.oma;
 
-import java.io.*;
-import java.util.*;
+import java.io.InputStream;
+import java.util.List;
 
 public class ByteArrayListInputStream extends InputStream
 {

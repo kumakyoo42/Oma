@@ -1,9 +1,15 @@
 package de.kumakyoo.oma;
 
-import java.io.*;
-import java.util.*;
-import java.nio.file.*;
-import java.nio.channels.*;
+import java.util.List;
+import java.util.ArrayList;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.FileOutputStream;
+import java.io.BufferedOutputStream;
+import java.nio.file.Path;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.nio.channels.FileChannel;
 
 public class PositionOutputStream extends OutputStream
 {
@@ -12,7 +18,6 @@ public class PositionOutputStream extends OutputStream
     Path filename;
     boolean toDisk;
 
-    private FileOutputStream fos;
     private FileChannel fc;
     private BufferedOutputStream bos;
     private ByteArrayListOutputStream balos;
@@ -29,7 +34,7 @@ public class PositionOutputStream extends OutputStream
 
         if (toDisk)
         {
-            fos = new FileOutputStream(filename.toString());
+            FileOutputStream fos = new FileOutputStream(filename.toString());
             fc = fos.getChannel();
             bos = new BufferedOutputStream(fos);
         }
@@ -179,7 +184,7 @@ public class PositionOutputStream extends OutputStream
         if (Oma.verbose>=4)
             System.err.println("        Using temporary file '"+filename+"'.");
 
-        fos = new FileOutputStream(filename.toString());
+        FileOutputStream fos = new FileOutputStream(filename.toString());
         fc = fos.getChannel();
         bos = new BufferedOutputStream(fos);
 

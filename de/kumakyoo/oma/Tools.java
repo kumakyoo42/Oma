@@ -1,12 +1,23 @@
 package de.kumakyoo.oma;
 
 import java.util.Arrays;
-import java.nio.file.*;
-import java.io.*;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.Files;
+import java.io.IOException;
+import java.io.File;
+import java.io.Reader;
+import java.io.FileReader;
+import java.io.InputStreamReader;
+import java.io.FileInputStream;
+import java.io.DataInputStream;
+import java.io.BufferedInputStream;
+import java.io.FileOutputStream;
+import java.io.DataOutputStream;
+import java.io.BufferedOutputStream;
 
 public class Tools
 {
-    static final byte[] OMA_SIGNATUR = {0x4f,0x4d,0x41};
     static final byte[] O5M_SIGNATUR = {(byte)0xff,(byte)0xe0,0x04,0x6f,0x35,0x6d,0x32};
     static final byte[] PBF_SIGNATUR = {0x0a,0x09,0x4f,0x53,0x4d};
 
@@ -34,9 +45,9 @@ public class Tools
 
     static String humanReadable(long l)
     {
-        if (l<1000) return l+"";
+        if (l<1000) return Long.toString(l);
 
-        int digits = (""+l).length();
+        int digits = Long.toString(l).length();
         return String.format("%."+(2-(digits-1)%3)+"f",l/Math.pow(10.0,3*((digits-1)/3)))+" KMGTE".charAt((digits-1)/3);
     }
 
@@ -57,39 +68,9 @@ public class Tools
         } catch (NumberFormatException e) { return -1; }
     }
 
-    static DataInputStream getInStream(String filename) throws IOException
-    {
-        return new DataInputStream(new BufferedInputStream(new FileInputStream(filename)));
-    }
-
-    static DataOutputStream getOutStream(String filename) throws IOException
-    {
-        return new DataOutputStream(new BufferedOutputStream(new FileOutputStream(filename)));
-    }
-
-    static DataInputStream getInStream(Path file) throws IOException
-    {
-        return new DataInputStream(new BufferedInputStream(Files.newInputStream(file)));
-    }
-
-    static DataOutputStream getOutStream(Path file) throws IOException
-    {
-        return new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(file)));
-    }
-
-    static boolean isOma(String filename) throws IOException
-    {
-        DataInputStream in = Tools.getInStream(filename);
-        byte[] data = new byte[3];
-        in.readFully(data);
-        in.close();
-
-        return Arrays.compare(data,OMA_SIGNATUR)==0;
-    }
-
     static boolean isO5M(Path filename) throws IOException
     {
-        DataInputStream in = Tools.getInStream(filename);
+        DataInputStream in = new DataInputStream(Files.newInputStream(filename));
         byte[] data = new byte[7];
         in.readFully(data);
         in.close();
@@ -99,7 +80,7 @@ public class Tools
 
     static boolean isPBF(Path filename) throws IOException
     {
-        DataInputStream in = Tools.getInStream(filename);
+        DataInputStream in = new DataInputStream(Files.newInputStream(filename));
         byte[] data = new byte[5];
         in.readInt();
         in.readFully(data);
@@ -110,7 +91,7 @@ public class Tools
 
     static Reader getResource(String name, Object o) throws IOException
     {
-        if ((new File(name)).exists())
+        if (new File(name).exists())
             return new FileReader(name);
 
         return new InputStreamReader(o.getClass().getResourceAsStream("/"+name));

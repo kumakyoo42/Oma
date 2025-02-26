@@ -4,9 +4,9 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.HashMap;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Path;
+import java.nio.file.Files;
 import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamConstants;
@@ -145,7 +145,7 @@ public class OSMXMLReader extends OSMReader
                         if ("type".equals(aname))
                             type = r.getAttributeValue(i);
                         else if ("ref".equals(aname))
-                            ref = Long.valueOf(r.getAttributeValue(i));
+                            ref = Long.parseLong(r.getAttributeValue(i));
                         else if ("role".equals(aname))
                             role = r.getAttributeValue(i);
                     }
@@ -193,18 +193,18 @@ public class OSMXMLReader extends OSMReader
     private void checkBasicData(String name, String value)
     {
         if ("id".equals(name))
-            id = Long.valueOf(value);
+            id = Long.parseLong(value);
         else if ("version".equals(name))
-            version = Integer.valueOf(value);
+            version = Integer.parseInt(value);
         else if ("timestamp".equals(name))
         {
             DateTimeFormatter f = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss'Z'");
             timestamp = LocalDateTime.from(f.parse(value)).toEpochSecond(ZoneOffset.UTC);
         }
         else if ("changeset".equals(name))
-            changeset = Long.valueOf(value);
+            changeset = Long.parseLong(value);
         else if ("uid".equals(name))
-            uid = Integer.valueOf(value);
+            uid = Integer.parseInt(value);
         else if ("user".equals(name))
             user = value;
     }

@@ -1,6 +1,6 @@
 package de.kumakyoo.oma;
 
-import java.io.*;
+import java.io.IOException;
 
 public class Bounds extends Element
 {
@@ -17,12 +17,12 @@ public class Bounds extends Element
         this.maxlat = maxlat;
     }
 
-    public Bounds(DataInputStream in) throws IOException
+    public Bounds(OmaInputStream in) throws IOException
     {
         this(in.readInt(),in.readInt(),in.readInt(),in.readInt());
     }
 
-    public void write(DataOutputStream out) throws IOException
+    public void write(OmaOutputStream out) throws IOException
     {
         out.writeInt(minlon);
         out.writeInt(minlat);

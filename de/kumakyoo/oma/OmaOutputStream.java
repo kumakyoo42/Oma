@@ -1,9 +1,9 @@
 package de.kumakyoo.oma;
 
-import java.io.*;
-import java.nio.file.*;
-import java.nio.channels.*;
-import java.util.*;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.DataOutputStream;
+import java.nio.file.Path;
 
 public class OmaOutputStream extends DataOutputStream
 {

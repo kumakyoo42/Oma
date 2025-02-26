@@ -1,6 +1,8 @@
 package de.kumakyoo.oma;
 
-import java.util.*;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Collections;
 
 public class Multipolygon
 {

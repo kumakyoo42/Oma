@@ -1,7 +1,9 @@
 package de.kumakyoo.oma;
 
-import java.io.*;
-import java.util.*;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ByteArrayListOutputStream extends OutputStream
 {

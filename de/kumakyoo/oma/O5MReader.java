@@ -6,10 +6,12 @@ import java.util.Map;
 import java.util.HashMap;
 import java.io.DataInputStream;
 import java.io.ByteArrayInputStream;
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.EOFException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import java.nio.file.Path;
+import java.nio.file.Files;
 
 public class O5MReader extends PackedIntegerReader
 {
@@ -35,7 +37,7 @@ public class O5MReader extends PackedIntegerReader
 
     public O5MReader(Path filename) throws IOException
     {
-        din = Tools.getInStream(filename);
+        din = new DataInputStream(new BufferedInputStream(Files.newInputStream(filename)));
     }
 
     public void close() throws IOException
@@ -177,7 +179,7 @@ public class O5MReader extends PackedIntegerReader
 
         changeset += s(in);
         String[] s = getPair(true,false);
-        uid = Integer.valueOf(s[0]);
+        uid = Integer.parseInt(s[0]);
         user = s[1];
     }
 
@@ -213,7 +215,7 @@ public class O5MReader extends PackedIntegerReader
         {
             if (index>=0x80)
                 index = index - 0x80 + (in.readUnsignedByte()<<7);
-            return table[(tab_index+15000-(int)index)%15000];
+            return table[(tab_index+15000-index)%15000];
         }
 
         String[] ret = new String[2];
@@ -221,11 +223,11 @@ public class O5MReader extends PackedIntegerReader
         if (integer)
         {
             if (nozero)
-                ret[0] = ""+(char)in.readUnsignedByte();
+                ret[0] = Character.toString((char)in.readUnsignedByte());
             else
             {
                 long value = u(in);
-                ret[0] = ""+value;
+                ret[0] = Long.toString(value);
                 len0 = getLength(value);
                 if (value!=0)
                     in.readUnsignedByte(); // zero separating uid and name

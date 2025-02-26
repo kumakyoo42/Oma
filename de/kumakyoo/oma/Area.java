@@ -1,7 +1,6 @@
 package de.kumakyoo.oma;
 
-import java.util.List;
-import java.io.*;
+import java.io.IOException;
 
 public class Area extends Way
 {

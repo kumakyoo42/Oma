@@ -234,31 +234,22 @@ public class Oma
             String token = t.nextToken();
             switch (token)
             {
-            case "all":
-                if (az!=1) usage("'-p all' cannot be mixed with other values");
-                preserve_id = preserve_version = preserve_timestamp = preserve_changeset = preserve_user = true;
-                break;
-            case "none":
-                if (az!=1) usage("'-p none' cannot be mixed with other values");
-                preserve_id = preserve_version = preserve_timestamp = preserve_changeset = preserve_user = false;
-                break;
-            case "id":
-                preserve_id = true;
-                break;
-            case "version": case "v":
-                preserve_version = true;
-                break;
-            case "timestamp": case "time": case "ts":
-                preserve_timestamp = true;
-                break;
-            case "changeset": case "cs":
-                preserve_changeset = true;
-                break;
-            case "user": case "uid":
-                preserve_user = true;
-                break;
-            default:
-                usage("unknown element '"+token+"' to preserve");
+                case "all" ->
+                {
+                    if (az!=1) usage("'-p all' cannot be mixed with other values");
+                    preserve_id = preserve_version = preserve_timestamp = preserve_changeset = preserve_user = true;
+                }
+                case "none" ->
+                {
+                    if (az!=1) usage("'-p none' cannot be mixed with other values");
+                    preserve_id = preserve_version = preserve_timestamp = preserve_changeset = preserve_user = false;
+                }
+            case "id" -> preserve_id = true;
+            case "version","v" -> preserve_version = true;
+            case "timestamp", "time", "ts" -> preserve_timestamp = true;
+            case "changeset", "cs" -> preserve_changeset = true;
+            case "user", "uid" -> preserve_user = true;
+            default -> usage("unknown element '"+token+"' to preserve");
             }
         }
     }
@@ -267,7 +258,7 @@ public class Oma
     {
         int size = p.getNameCount();
         String last = p.getName(size-1).toString();
-        int dotpos = last.lastIndexOf(".");
+        int dotpos = last.lastIndexOf('.');
         if (dotpos>=0) last = last.substring(0,dotpos);
         last += ext;
         return p.resolveSibling(last);

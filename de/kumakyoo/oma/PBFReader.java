@@ -1,9 +1,17 @@
 package de.kumakyoo.oma;
 
-import java.util.*;
-import java.io.*;
-import java.nio.file.*;
-import java.util.zip.*;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
+import java.io.IOException;
+import java.io.EOFException;
+import java.io.DataInputStream;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
+import java.nio.file.Path;
+import java.nio.file.Files;
+import java.util.zip.InflaterInputStream;
 import java.nio.charset.StandardCharsets;
 
 public class PBFReader extends PackedIntegerReader
@@ -13,7 +21,7 @@ public class PBFReader extends PackedIntegerReader
 
     public PBFReader(Path filename) throws IOException
     {
-        din = Tools.getInStream(filename);
+        din = new DataInputStream(new BufferedInputStream(Files.newInputStream(filename)));
     }
 
     public void close() throws IOException

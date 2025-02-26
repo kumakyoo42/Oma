@@ -1,7 +1,6 @@
 package de.kumakyoo.oma;
 
-import java.util.List;
-import java.io.*;
+import java.io.IOException;
 
 public class Way extends ElementWithID
 {
@@ -53,6 +52,6 @@ public class Way extends ElementWithID
 
     public boolean isClosed()
     {
-        return lon.length>=3 && (lon[0]==lon[lon.length-1] && lat[0]==lat[lat.length-1]);
+        return lon.length>=3 && lon[0]==lon[lon.length-1] && lat[0]==lat[lat.length-1];
     }
 }
