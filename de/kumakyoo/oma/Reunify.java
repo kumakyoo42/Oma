@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.EOFException;
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
@@ -69,12 +70,12 @@ public class Reunify
 
     public OmaOutputStream process() throws IOException
     {
-        allocateMemory("nodes");
+        allocateMemory(true);
         readFile();
         updateNodes();
         releaseMemory();
 
-        allocateMemory("ways");
+        allocateMemory(false);
         updateWays();
         releaseMemory();
 
@@ -87,7 +88,7 @@ public class Reunify
         return out;
     }
 
-    private void allocateMemory(String type)
+    private void allocateMemory(boolean nodes) throws IOException
     {
         long available = Tools.memavail();
         long useable = (available-Oma.memlimit)/10*9;
@@ -99,16 +100,33 @@ public class Reunify
             System.out.println("      Useable: "+Tools.humanReadable(useable));
         }
 
-        long wish =
-            switch (type)
-            {
-                case "nodes" -> useable/16+1;
-                case "ways" -> useable/90+1;
-                case "relations" -> useable/10000+1;
-                default -> -1;
-            };
+        long wish = useable/(nodes?16:90)+1;
 
-        if ("relations".equals(type)) wish = 900; // xxx
+        if (nodes)
+        {
+            // Calculating the theoretical maximum of nodes in the input file
+            // assuming the file contains only nodes. The values 4/9/64 are
+            // derived from counting nodes in germany extract from 1st of
+            // January 2025 and rounding down.
+            //
+            // If we don't do this, memory is completely used for nodes and
+            // other temporary data is always saved to disk, even if memory
+            // would have sufficed for everything.
+
+            long max_nodes = Files.size(infile);
+
+            if (Tools.isPBF(infile))
+                max_nodes /= 4;
+            else if (Tools.isO5M(infile))
+                max_nodes /= 9;
+            else
+                max_nodes /= 64;
+
+            if (Oma.verbose>=3)
+                System.out.println("      Estimating maximum number of nodes to "+Tools.humanReadable(max_nodes)+" from filesize.");
+
+            wish = Math.min(max_nodes,wish);
+        }
 
         int max = wish>Integer.MAX_VALUE-10?Integer.MAX_VALUE-10:(int)wish;
 
@@ -116,16 +134,16 @@ public class Reunify
             try
             {
                 if (Oma.verbose>=3)
-                    System.out.println("      Trying to allocate "+max+" "+type+"...");
+                    System.out.println("      Trying to allocate "+max+" "+(nodes?"nodes":"ways")+"...");
 
                 ids = new long[max];
 
-                if ("nodes".equals(type))
+                if (nodes)
                 {
                     nodes_lon = new int[max];
                     nodes_lat = new int[max];
                 }
-                else if ("ways".equals(type))
+                else
                     ways_data = new byte[max][];
 
                 break;
@@ -384,7 +402,7 @@ public class Reunify
     private void initTmpNodes() throws IOException
     {
         nodes = Tools.tmpFile("nodes");
-        nos = OmaOutputStream.init(nodes);
+        nos = OmaOutputStream.init(nodes,true);
     }
 
     private void endNodes() throws IOException
@@ -519,7 +537,7 @@ public class Reunify
         wout.move(Tools.tmpFile("original"));
 
         OmaInputStream in = OmaInputStream.init(wout);
-        wout = OmaOutputStream.init(wtmp,true);
+        wout = OmaOutputStream.init(wtmp);
 
         for (int c=0;c<wc;c++)
         {
@@ -545,7 +563,7 @@ public class Reunify
         rwout.move(Tools.tmpFile("original"));
 
         OmaInputStream in = OmaInputStream.init(rwout);
-        rwout = OmaOutputStream.init(rwtmp,true);
+        rwout = OmaOutputStream.init(rwtmp);
 
         for (int c=0;c<rwc;c++)
         {
@@ -571,7 +589,7 @@ public class Reunify
         raout.move(Tools.tmpFile("original"));
 
         OmaInputStream in = OmaInputStream.init(raout);
-        raout = OmaOutputStream.init(ratmp,true);
+        raout = OmaOutputStream.init(ratmp);
 
         for (int c=0;c<rac;c++)
         {
@@ -734,7 +752,7 @@ public class Reunify
         rwout.move(original);
 
         OmaInputStream in = OmaInputStream.init(rwout);
-        rwout = OmaOutputStream.init(rwtmp,true);
+        rwout = OmaOutputStream.init(rwtmp);
 
         for (int i=0;i<rwc;i++)
         {
@@ -758,7 +776,7 @@ public class Reunify
         raout.move(original);
 
         OmaInputStream in = OmaInputStream.init(raout);
-        raout = OmaOutputStream.init(ratmp,true);
+        raout = OmaOutputStream.init(ratmp);
 
         for (int i=0;i<rac;i++)
         {

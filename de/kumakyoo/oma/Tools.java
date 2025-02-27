@@ -23,21 +23,6 @@ public class Tools
 
     private static Path tmpDir = null;
 
-    static long getFileSize(String filename) throws IOException
-    {
-        return Files.size(Paths.get(filename));
-    }
-
-    static long getFileSize(File filename) throws IOException
-    {
-        return Files.size(filename.toPath());
-    }
-
-    static long getFileSize(Path filename) throws IOException
-    {
-        return Files.size(filename);
-    }
-
     static long memavail()
     {
         return Runtime.getRuntime().maxMemory()-(Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory());
