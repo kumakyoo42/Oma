@@ -454,6 +454,8 @@ public class Reunify
 
         if (missing_nodes>0)
             addMissingNodes();
+        else
+            nos.release();
 
         if (Oma.verbose>=2)
             System.out.println("    All nodes updated.");
