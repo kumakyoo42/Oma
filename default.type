@@ -342,6 +342,14 @@ WAY
   landcover
     IS_AREA
 
+COLLECTION
+  route
+    bus
+    hiking
+    bicycle
+    road
+  public_transport
+
 LIFECYCLE
   abandoned
   disused

@@ -34,9 +34,12 @@ public class TypeAnalysis
     private String[][] areaValues;
     private boolean[] isArea;
     private String[][] exceptions;
+    private String[] collKeys;
+    private String[][] collValues;
     private String[] lifeCyclePrefixes;
     private String[][] nlcpkey;
     private String[][] wlcpkey;
+    private String[][] clcpkey;
 
     private int blocks;
     private int slices;
@@ -72,6 +75,8 @@ public class TypeAnalysis
         List<Boolean> ia = new ArrayList<>();
         List<List<String>> ex = new ArrayList<>();
         List<String> lc = new ArrayList<>();
+        List<String> ck = new ArrayList<>();
+        List<List<String>> cv = new ArrayList<>();
         lc.add("");
 
         List<String> values = null;
@@ -101,7 +106,7 @@ public class TypeAnalysis
             }
             else if (line.startsWith("    "))
             {
-                if ("NODE".equals(mode))
+                if ("NODE".equals(mode) || "COLLECTION".equals(mode))
                     values.add(line.trim());
                 else if ("WAY".equals(mode))
                 {
@@ -136,6 +141,13 @@ public class TypeAnalysis
                     av.add(avalues);
                     evalues = new ArrayList<>();
                     ex.add(evalues);
+                }
+                else if ("COLLECTION".equals(mode))
+                {
+                    key = line.trim();
+                    ck.add(key);
+                    values = new ArrayList<>();
+                    cv.add(values);
                 }
                 else if ("LIFECYCLE".equals(mode))
                 {
@@ -183,6 +195,14 @@ public class TypeAnalysis
             exceptions[i] = new String[ex.get(i).size()];
             ex.get(i).toArray(exceptions[i]);
         }
+        collKeys = new String[ck.size()];
+        ck.toArray(collKeys);
+        collValues = new String[cv.size()][];
+        for (int i=0;i<cv.size();i++)
+        {
+            collValues[i] = new String[cv.get(i).size()];
+            cv.get(i).toArray(collValues[i]);
+        }
         lifeCyclePrefixes = new String[lc.size()];
         lc.toArray(lifeCyclePrefixes);
 
@@ -194,9 +214,16 @@ public class TypeAnalysis
         for (int j=0;j<wayKeys.length;j++)
             for (int k=0;k<lifeCyclePrefixes.length;k++)
                 wlcpkey[j][k] = lifeCyclePrefixes[k]+wayKeys[j];
+        clcpkey = new String[collKeys.length][lifeCyclePrefixes.length];
+        for (int j=0;j<collKeys.length;j++)
+            for (int k=0;k<lifeCyclePrefixes.length;k++)
+                clcpkey[j][k] = lifeCyclePrefixes[k]+collKeys[j];
 
         if (Oma.verbose>=2)
-            System.out.println("    Read "+nodeKeys.length+" node keys, "+wayKeys.length+" way keys, "+lifeCyclePrefixes.length+" lifecycle prefixes.");
+        {
+            System.out.println("    Read "+nodeKeys.length+" node keys, "+wayKeys.length+" way keys, "+collKeys.length+" collection keys");
+            System.out.println("      and "+lifeCyclePrefixes.length+" lifecycle prefixes.");
+        }
     }
 
     //////////////////////////////////////////////////////////////////
@@ -267,7 +294,7 @@ public class TypeAnalysis
             out = new OmaOutputStream(bos);
         }
 
-        out.writeSmallInt(3);
+        out.writeSmallInt(4);
         out.writeByte('N');
         out.writeSmallInt(nodeKeys.length);
         for (int i=0;i<nodeKeys.length;i++)
@@ -298,6 +325,16 @@ public class TypeAnalysis
                 out.writeString(areaValues[i][j]);
         }
 
+        out.writeByte('C');
+        out.writeSmallInt(collKeys.length);
+        for (int i=0;i<collKeys.length;i++)
+        {
+            out.writeString(collKeys[i]);
+            out.writeSmallInt(collValues[i].length);
+            for (int j=0;j<collValues[i].length;j++)
+                out.writeString(collValues[i][j]);
+        }
+
         if (Oma.zip_chunks)
         {
             bos.flush();
@@ -322,35 +359,7 @@ public class TypeAnalysis
     private void reorganizeChunk(Chunk c) throws IOException
     {
         in.setPosition(c.start);
-        if (c.type=='C')
-            writeCollectionChunk(in,in.readInt(),c.bounds);
-        else
-            analyseChunkOfType(in,c.type,c.type=='W',in.readInt(),c.bounds);
-    }
-
-    private void writeCollectionChunk(OmaInputStream in, int count, Bounds b) throws IOException
-    {
-        outChunks.add(new Chunk(out.getPosition(),(byte)'C',b));
-
-        long startpos = out.getPosition();
-        out.writeInt(0); // Position der Sprungtabelle
-
-        List<ElementWithID> block = new ArrayList<>();
-
-        for (int i=0;i<count;i++)
-            block.add(new Collection(in,features));
-
-        writeOtherBlock(block);
-
-        long tablepos = out.getPosition();
-        out.setPosition(startpos);
-        out.writeInt((int)(tablepos-startpos));
-        out.setPosition(tablepos);
-
-        out.writeSmallInt(1);
-        out.writeInt(4);
-        out.writeString("");
-        blocks++;
+        analyseChunkOfType(in,c.type,c.type=='W',in.readInt(),c.bounds);
     }
 
     private void analyseChunkOfType(OmaInputStream in, byte type, boolean split, int count, Bounds b) throws IOException
@@ -358,7 +367,7 @@ public class TypeAnalysis
         if (split) initSplit();
         byte splittype = split?(byte)'A':type;
 
-        String[] keys = type=='N'?nodeKeys:wayKeys;
+        String[] keys = type=='N'?nodeKeys:(type=='C'?collKeys:wayKeys);
 
         List<List<ElementWithID>> block = new ArrayList<>(keys.length+1);
         for (int i=0;i<keys.length+1;i++)
@@ -399,11 +408,11 @@ public class TypeAnalysis
     {
         boolean empty = true;
 
-        String[][] lcpkey = type=='N'?nlcpkey:wlcpkey;
+        String[][] lcpkey = type=='N'?nlcpkey:(type=='C'?clcpkey:wlcpkey);
 
         boolean used = false;
 
-        ElementWithID e = type=='N'?new Node(in,features):(type=='W'?new Way(in,features):new Area(in,features));
+        ElementWithID e = type=='N'?new Node(in,features):(type=='C'?new Collection(in,features):(type=='W'?new Way(in,features):(type=='A'?new Area(in,features):new Collection(in,features))));
 
         outer: for (int j=0;j<keys.length;j++)
             for (int k=0;k<lifeCyclePrefixes.length;k++)
@@ -489,7 +498,9 @@ public class TypeAnalysis
         {
             if (block.get(i).isEmpty()) continue;
             start[i] = out.getPosition();
-            reorganizeBlock(block.get(i),type=='N'?nodeKeys[i]:wayKeys[i],type=='N'?nodeValues[i]:(type=='W'?wayValues[i]:areaValues[i]));
+            reorganizeBlock(block.get(i),
+                            type=='N'?nodeKeys[i]:(type=='C'?collKeys[i]:wayKeys[i]),
+                            type=='N'?nodeValues[i]:(type=='C'?collValues[i]:(type=='W'?wayValues[i]:areaValues[i])));
             count++;
         }
 
