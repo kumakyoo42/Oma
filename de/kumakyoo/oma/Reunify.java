@@ -30,10 +30,6 @@ public class Reunify
     private Path ratmp;
     private Path rctmp;
 
-    private Path nodes;
-
-    private OmaOutputStream nos;
-
     private OmaOutputStream out;
     private OmaOutputStream nout;
     private OmaOutputStream wout;
@@ -61,6 +57,9 @@ public class Reunify
     private long missing_ways;
 
     private Bounds bounding_box;
+
+    private long nodes_start = -1;
+    private long node_count = 0;
 
     public Reunify(Path infile, Path outfile)
     {
@@ -249,11 +248,9 @@ public class Reunify
         }
         else
         {
-            if (nos==null)
-                initTmpNodes();
-            nos.writeLong(n.id);
-            nos.writeInt(n.lon);
-            nos.writeInt(n.lat);
+            if (nodes_start==-1)
+                nodes_start = nout.getPosition();
+            node_count++;
         }
 
         writeMeta(nout,n);
@@ -399,12 +396,6 @@ public class Reunify
         }
     }
 
-    private void initTmpNodes() throws IOException
-    {
-        nodes = Tools.tmpFile("nodes");
-        nos = OmaOutputStream.init(nodes,true);
-    }
-
     private void endNodes() throws IOException
     {
         if (Oma.verbose>=3)
@@ -414,12 +405,6 @@ public class Reunify
         }
 
         all_nodes_read = true;
-
-        if (nos==null) return;
-        nos.close();
-
-        if (Oma.verbose>=3)
-            System.out.println("      "+Tools.humanReadable(nos.fileSize()/16)+" nodes temporarily saved.");
     }
 
     private void endWays() throws IOException
@@ -463,7 +448,7 @@ public class Reunify
 
     private void updateNodes() throws IOException
     {
-        if (nodes==null) return;
+        if (node_count==0) return;
 
         if (Oma.verbose>=2)
             System.out.println("  Updating missing nodes...");
@@ -472,8 +457,6 @@ public class Reunify
 
         if (missing_nodes>0)
             addMissingNodes();
-        else
-            nos.release();
 
         if (Oma.verbose>=2)
             System.out.println("    All nodes updated.");
@@ -481,7 +464,6 @@ public class Reunify
 
     private void addMissingNodes() throws IOException
     {
-        long node_count = nos.fileSize()/16;
         long passes = node_count/ids.length;
         if (node_count%ids.length>0) passes++;
 
@@ -491,7 +473,8 @@ public class Reunify
             System.out.println("      "+passes+" passes needed.");
         }
 
-        OmaInputStream nis = OmaInputStream.init(nos);
+        OmaInputStream nis = OmaInputStream.init(nout);
+        nis.setPosition(nodes_start);
         for (int pass=0;pass<passes;pass++)
         {
             if (!Oma.silent)
@@ -509,7 +492,7 @@ public class Reunify
             updateNodesOfRelationWays();
             updateNodesOfRelationAreas();
         }
-        nis.release();
+        nis.close();
     }
 
     private void readTmpNodes(OmaInputStream nis) throws IOException
@@ -519,13 +502,29 @@ public class Reunify
             for (nodes_c=0;nodes_c<ids.length;nodes_c++)
             {
                 ids[nodes_c] = nis.readLong();
+                if (Oma.preserve_version)
+                    nis.readSmallInt();
+                if (Oma.preserve_timestamp)
+                    nis.readLong();
+                if (Oma.preserve_changeset)
+                    nis.readLong();
+                if (Oma.preserve_user)
+                {
+                    nis.readInt();
+                    nis.readString();
+                }
+
                 nodes_lon[nodes_c] = nis.readInt();
                 nodes_lat[nodes_c] = nis.readInt();
+
+                int taz = nis.readSmallInt();
+                for (int i=0;i<2*taz;i++)
+                    nis.readString();
             }
         }
         catch (EOFException e)
         {
-            nis.release();
+            nis.close();
         }
     }
 
