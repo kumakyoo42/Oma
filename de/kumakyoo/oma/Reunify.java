@@ -56,7 +56,7 @@ public class Reunify
     private long missing_nodes;
     private long missing_ways;
 
-    private Bounds bounding_box;
+    private Bounds bounding_box = Bounds.getNoBounds();
 
     private long nodes_start = -1;
     private long node_count = 0;
