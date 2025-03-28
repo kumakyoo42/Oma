@@ -130,7 +130,7 @@ public class Multipolygon
 
         if (outer_rings==null) return;
 
-        Collections.sort(outer_rings,(a,b) -> inside(a,b)?1:inside(b,a)?-1:0);
+        Collections.sort(outer_rings,(a,b) -> inside(a,b)?-1:inside(b,a)?1:0);
 
         if (inner_rings==null) inner_rings = new ArrayList<>();
         used = new boolean[inner_rings.size()];
