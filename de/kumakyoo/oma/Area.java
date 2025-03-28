@@ -89,6 +89,8 @@ public class Area extends Way
 
     public void writeGeo(OmaOutputStream out) throws IOException
     {
+        sortRings();
+
         out.writeSmallInt(lon.length);
         for (int k=0;k<lon.length;k++)
         {
@@ -104,6 +106,41 @@ public class Area extends Way
                 out.writeDeltaX(h_lon[k][i]);
                 out.writeDeltaY(h_lat[k][i]);
             }
+        }
+    }
+
+    private void sortRings()
+    {
+        if (!isClockWise(lon,lat))
+        {
+            reverse(lon);
+            reverse(lat);
+        }
+
+        for (int i=0;i<h_lon.length;i++)
+            if (isClockWise(h_lon[i],h_lat[i]))
+            {
+                reverse(h_lon[i]);
+                reverse(h_lat[i]);
+            }
+    }
+
+    private boolean isClockWise(int[] lon, int[] lat)
+    {
+        long sum = 0;
+        for (int i=0;i<lon.length;i++)
+            sum += (lon[(i+1)%lon.length]-lon[i])*(lat[(i+1)%lon.length]+lat[i]);
+
+        return sum>=0;
+    }
+
+    private void reverse(int[] h)
+    {
+        for (int i=0;i<h.length/2;i++)
+        {
+            int tmp = h[i];
+            h[i] = h[h.length-i-1];
+            h[h.length-i-1] = tmp;
         }
     }
 }
