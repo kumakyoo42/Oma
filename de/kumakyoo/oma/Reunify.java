@@ -56,7 +56,7 @@ public class Reunify
     private long missing_nodes;
     private long missing_ways;
 
-    private Bounds bounding_box = Bounds.getNoBounds();
+    private Bounds bounding_box;
 
     private long nodes_start = -1;
     private long node_count = 0;
@@ -79,8 +79,11 @@ public class Reunify
         releaseMemory();
 
         out = OmaOutputStream.init(outfile,true);
-        out.writeByte('B');
-        bounding_box.write(out);
+        if (bounding_box!=null)
+        {
+            out.writeByte('B');
+            bounding_box.write(out);
+        }
         addMembers();
         out.close();
 
