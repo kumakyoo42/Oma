@@ -505,7 +505,7 @@ public class TypeAnalysis
         }
 
         int other = keys.length;
-        if (block.get(other).isEmpty())
+        if (!block.get(other).isEmpty())
         {
             start[other] = out.getPosition();
             writeOtherBlock(block.get(other));
