@@ -30,6 +30,23 @@ format](https://github.com/kumakyoo42/oma-file-formats/blob/main/OMA.md).
 If no filename is provided, the name of the input file is used with
 extension replaced by `.oma`.
 
+### Dealing with incomplete or invalid input
+
+Missing nodes are included with both coordinates set to 0x7fffffff.
+Missing ways or missing members are not included. Holes inside of
+missing areas are not included as well.
+
+Invalid ways (and areas derived from ways) are preserved as is.
+
+Special handling of multipolygons and boundaries: Members that do not
+form a closed loop are not included. Inner members which are not
+inside of an outer member (either because all nodes are outside or
+because the outer member is invalid or missing) are not included.
+
+Special handling of restrictions and destination_signs: If `via`,
+`intersection` or `to` is missing, the element is not included. If
+`from` is missing, an empty `from` is used.
+
 ### Options
 
     -b <bbs-file>  bbs-file; default: default.bbs
