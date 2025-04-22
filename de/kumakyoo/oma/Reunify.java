@@ -541,7 +541,7 @@ public class Reunify
         OmaInputStream in = OmaInputStream.init(wout);
         wout = OmaOutputStream.init(wtmp);
 
-        for (int c=0;c<wc;c++)
+        for (long c=0;c<wc;c++)
         {
             if (!Oma.silent && c%100000==0)
                 System.err.printf("Step 1: updating nodes of ways: %.1f%%        \r",100.0/wc*c);
@@ -567,7 +567,7 @@ public class Reunify
         OmaInputStream in = OmaInputStream.init(rwout);
         rwout = OmaOutputStream.init(rwtmp);
 
-        for (int c=0;c<rwc;c++)
+        for (long c=0;c<rwc;c++)
         {
             if (!Oma.silent && c%100000==0)
                 System.err.printf("Step 1: updating nodes of ways from relations: %.1f%%        \r",100.0/rwc*c);
@@ -593,7 +593,7 @@ public class Reunify
         OmaInputStream in = OmaInputStream.init(raout);
         raout = OmaOutputStream.init(ratmp);
 
-        for (int c=0;c<rac;c++)
+        for (long c=0;c<rac;c++)
         {
             if (!Oma.silent && c%100000==0)
                 System.err.printf("Step 1: updating nodes of areas from relations: %.1f%%        \r",100.0/rac*c);
@@ -756,7 +756,7 @@ public class Reunify
         OmaInputStream in = OmaInputStream.init(rwout);
         rwout = OmaOutputStream.init(rwtmp);
 
-        for (int i=0;i<rwc;i++)
+        for (long i=0;i<rwc;i++)
         {
             if (!Oma.silent && i%10000==0)
                 System.err.printf("Step 1: updating ways of way relations: %.1f%%        \r",100.0/rwc*i);
@@ -780,7 +780,7 @@ public class Reunify
         OmaInputStream in = OmaInputStream.init(raout);
         raout = OmaOutputStream.init(ratmp);
 
-        for (int i=0;i<rac;i++)
+        for (long i=0;i<rac;i++)
         {
             if (!Oma.silent && i%10000==0)
                 System.err.printf("Step 1: updating ways of area relations: %.1f%%        \r",100.0/rac*i);
@@ -891,7 +891,7 @@ public class Reunify
 
         OmaInputStream in = OmaInputStream.init(rcout);
 
-        for (int j=0;j<rcc;j++)
+        for (long j=0;j<rcc;j++)
         {
             long rid = in.readLong();
             if (Oma.preserve_version)
@@ -934,7 +934,7 @@ public class Reunify
     {
         OmaInputStream in = OmaInputStream.init(nout);
 
-        for (int i=0;i<nc;i++)
+        for (long i=0;i<nc;i++)
         {
             if (!Oma.silent && i%10000==0)
                 System.err.printf("Step 1: adding members: %.1f%% (nodes)       \r",100.0/(nc+wc+rwc+rac+rcc)*i);
@@ -997,7 +997,7 @@ public class Reunify
     {
         OmaInputStream in = OmaInputStream.init(wout);
 
-        for (int i=0;i<wc;i++)
+        for (long i=0;i<wc;i++)
         {
             if (!Oma.silent && i%10000==0)
                 System.err.printf("Step 1: adding members: %.1f%% (ways)       \r",100.0/(nc+wc+rwc+rac+rcc)*(nc+i));
@@ -1065,7 +1065,7 @@ public class Reunify
     {
         OmaInputStream in = OmaInputStream.init(rwout);
 
-        for (int i=0;i<rwc;i++)
+        for (long i=0;i<rwc;i++)
         {
             if (!Oma.silent && i%10000==0)
                 System.err.printf("Step 1: adding members: %.1f%% (ways)       \r",100.0/(nc+wc+rwc+rac+rcc)*(nc+wc+i));
@@ -1177,7 +1177,7 @@ public class Reunify
     {
         OmaInputStream in = OmaInputStream.init(raout);
 
-        for (int i=0;i<rac;i++)
+        for (long i=0;i<rac;i++)
         {
             if (!Oma.silent && i%10000==0)
                 System.err.printf("Step 1: adding members: %.1f%% (areas)       \r",100.0/(nc+wc+rwc+rac+rcc)*(nc+wc+rwc+i));
@@ -1283,7 +1283,7 @@ public class Reunify
     {
         OmaInputStream in = OmaInputStream.init(rcout);
 
-        for (int i=0;i<rcc;i++)
+        for (long i=0;i<rcc;i++)
         {
             if (!Oma.silent && i%10000==0)
                 System.err.printf("Step 1: adding members: %.1f%% (collections)       \r",100.0/(nc+wc+rwc+rac+rcc)*(nc+wc+rwc+rac+i));
