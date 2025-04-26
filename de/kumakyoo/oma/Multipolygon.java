@@ -85,20 +85,27 @@ public class Multipolygon
 
     private boolean createRings(int nr, Point s, Point e)
     {
-        if (s==null)
+        if (s==null || s.equals(e))
         {
+            boolean found = false;
             for (int i=0;i<used.length;i++)
             {
                 if (used[i]) continue;
 
                 used[i] = true;
                 result[nr] = i;
-                return createRings(nr+1,start[i],end[i]);
+                nr++;
+                if (!start[i].equals(end[i]))
+                {
+                    s = start[i];
+                    e = end[i];
+                    found = true;
+                    break;
+                }
             }
-            return true;
+            if (!found)
+                return true;
         }
-
-        if (s.equals(e)) return createRings(nr,null,null);
 
         for (int i=0;i<used.length;i++)
         {
