@@ -40,6 +40,21 @@ public class Bounds extends Element
         return new Bounds(Integer.MAX_VALUE,Integer.MAX_VALUE,Integer.MAX_VALUE,Integer.MAX_VALUE);
     }
 
+    public void addNode(OSMNode n)
+    {
+        if (minlon==Integer.MAX_VALUE)
+        {
+            minlon = maxlon = n.lon;
+            minlat = maxlat = n.lat;
+            return;
+        }
+
+        if (n.lon<minlon) minlon = n.lon;
+        if (n.lon>maxlon) maxlon = n.lon;
+        if (n.lat<minlat) minlat = n.lat;
+        if (n.lat>maxlat) maxlat = n.lat;
+    }
+
     public boolean contains(int lon, int lat)
     {
         return lon>=minlon && lon<=maxlon && lat>=minlat && lat<=maxlat;

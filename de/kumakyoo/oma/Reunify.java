@@ -208,8 +208,6 @@ public class Reunify
                 processWay((OSMWay)el);
             else if (el instanceof OSMRelation)
                 processRelation((OSMRelation)el);
-            else if (el instanceof Bounds)
-                processBounds((Bounds)el);
         }
 
         if (!all_nodes_read) endNodes();
@@ -231,16 +229,14 @@ public class Reunify
         }
     }
 
-    private void processBounds(Bounds b) throws IOException
-    {
-        bounding_box = b;
-    }
-
     private void processNode(OSMNode n) throws IOException
     {
         nc++;
         if (!Oma.silent && nc%100000==0)
             System.err.print("Step 1: reading nodes: "+Tools.humanReadable(nc)+"        \r");
+
+        if (bounding_box==null) bounding_box = Bounds.getNoBounds();
+        bounding_box.addNode(n);
 
         if (nodes_c<ids.length)
         {
