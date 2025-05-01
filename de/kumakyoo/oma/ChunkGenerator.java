@@ -26,6 +26,7 @@ public class ChunkGenerator
     private int[] lastx;
     private int[] lasty;
     private OmaOutputStream[] cout;
+    private OmaOutputStream[] pout;
 
     private int features;
 
@@ -98,12 +99,17 @@ public class ChunkGenerator
         if (Oma.verbose>=2)
             System.out.println("  Splitting data into chunks...");
 
-        Bounds bb = Bounds.getNoBounds();
-        initGlobalData();
-
         out = OmaOutputStream.init(outfile,true);
         writeHeader();
+        Bounds bb = Bounds.getNoBounds();
+        chunktable = new ArrayList<>();
 
+        if (bounds.size()>=Oma.max_chunks && Oma.verbose>=3)
+            System.out.println("    Too many chunks (>"+Oma.max_chunks+"). Using two-level splitting.");
+
+        initGlobalData();
+
+        long saved = 0;
         long fs = infile.fileSize();
         OmaInputStream in = OmaInputStream.init(infile);
 
@@ -114,14 +120,18 @@ public class ChunkGenerator
         while (true)
         {
             if (!Oma.silent && ++c%100000==0)
-                System.err.printf("Step 2: %.1f%%      \r",100.0/fs*in.getPosition());
+                System.err.printf("Step 2: in: %.1f%% out: %.1f%%      \r",100.0/fs*in.getPosition(),100.0/fs*saved);
 
             try {
                 type = in.readByte();
             } catch (EOFException e) { break; }
 
             if (type!=last)
-                saveChunks(last);
+            {
+                saved = in.getPosition();
+                handleType(last);
+                initGlobalData();
+            }
             last = type;
 
             switch (type)
@@ -130,7 +140,10 @@ public class ChunkGenerator
                 bb = new Bounds(in);
                 break;
             case 'N': case 'W': case 'A': case 'C':
-                saveElementToChunk(in,type);
+                if (bounds.size()>=Oma.max_chunks)
+                    copyElement(in,type);
+                else
+                    saveElementToChunk(in,type);
                 break;
             default:
                 System.err.println("Error: unknown type "+(char)type+".");
@@ -138,18 +151,46 @@ public class ChunkGenerator
             }
         }
         in.release();
+        handleType(last);
         if (!Oma.silent)
             System.err.print("Step 2:                             \r");
 
-        saveChunks(last);
         writeChunkTable(bb);
         out.close();
 
-        for (OmaOutputStream out:cout)
-            out.release();
-
         if (Oma.verbose>=2)
             System.out.println("    Splitting was successful ("+chunktable.size()+" chunks).");
+    }
+
+    private void handleType(byte type) throws IOException
+    {
+        if (type!='N' && type!='W' && type!='A' && type!='C') return;
+
+        if (bounds.size()>=Oma.max_chunks)
+        {
+            for (int p=0;p<bounds.size()/Oma.max_chunks+1;p++)
+            {
+                count = new int[Oma.max_chunks];
+                lastx = new int[Oma.max_chunks];
+                lasty = new int[Oma.max_chunks];
+                cout = new OmaOutputStream[Oma.max_chunks];
+                for (int i=0;i<Oma.max_chunks;i++)
+                    cout[i] = OmaOutputStream.init(Tools.tmpFile("chunk"+(Oma.max_chunks*p+i)));
+
+                pout[p].close();
+                OmaInputStream in = OmaInputStream.init(pout[p]);
+
+                while (true)
+                    try {
+                        saveElementToChunk(in,type,p*Oma.max_chunks);
+                    } catch (EOFException e) { break; }
+                in.release();
+
+                saveChunks(type,p*Oma.max_chunks);
+            }
+        }
+        else
+            saveChunks(type,0);
     }
 
     //////////////////////////////////////////////////////////////////
@@ -177,42 +218,53 @@ public class ChunkGenerator
 
     private void initGlobalData() throws IOException
     {
-        int b = bounds.size()+1;
-        chunktable = new ArrayList<>();
+        if (bounds.size()>=Oma.max_chunks)
+        {
+            int b = bounds.size()/Oma.max_chunks+1;
 
-        count = new int[b];
-        lastx = new int[b];
-        lasty = new int[b];
-        cout = new OmaOutputStream[b];
-        for (int i=0;i<b;i++)
-            cout[i] = OmaOutputStream.init(Tools.tmpFile("chunk"+i));
+            pout = new OmaOutputStream[b];
+            for (int i=0;i<b;i++)
+                pout[i] = OmaOutputStream.init(Tools.tmpFile("prechunk"+i),true);
+        }
+        else
+        {
+            int b = bounds.size()+1;
+
+            count = new int[b];
+            lastx = new int[b];
+            lasty = new int[b];
+            cout = new OmaOutputStream[b];
+            for (int i=0;i<b;i++)
+                cout[i] = OmaOutputStream.init(Tools.tmpFile("chunk"+i));
+        }
     }
 
     //////////////////////////////////////////////////////////////////
 
-    private void saveChunks(byte type) throws IOException
+    private void saveChunks(byte type, int delta) throws IOException
     {
-        if (type!='N' && type!='W' && type!='A' && type!='C') return;
-
         if (Oma.verbose>=3)
             System.out.println("      Saving "+cout.length+" chunks of type '"+((char)type)+"'.");
 
         for (int i=0;i<cout.length;i++)
+        {
             if (count[i]>0)
             {
                 if (!Oma.silent)
                     System.err.print("Step 2: saving chunk "+(i+1)+"/"+cout.length+"    \r");
-                saveChunk(i,type);
+                saveChunk(i,delta,type);
             }
+            cout[i].release();
+        }
         if (!Oma.silent)
             System.err.print("Step 2:                                                                      \r");
 
         Tools.gc();
     }
 
-    private void saveChunk(int i, byte type) throws IOException
+    private void saveChunk(int i, int delta, byte type) throws IOException
     {
-        copyChunk(i,type);
+        copyChunk(i,delta,type);
 
         lastx[i] = 0;
         lasty[i] = 0;
@@ -220,7 +272,7 @@ public class ChunkGenerator
         cout[i] = OmaOutputStream.init(Tools.tmpFile("chunk"+i));
     }
 
-    private void copyChunk(int i, byte type) throws IOException
+    private void copyChunk(int i, int delta, byte type) throws IOException
     {
         cout[i].close();
 
@@ -233,7 +285,7 @@ public class ChunkGenerator
         out.writeInt(count[i]);
         out.setPosition(end);
 
-        Bounds b = i<bounds.size()?bounds.get(i):Bounds.getNoBounds();
+        Bounds b = i+delta<bounds.size()?bounds.get(i+delta):Bounds.getNoBounds();
         chunktable.add(new Chunk(start,type,b));
 
         cout[i].release();
@@ -253,7 +305,111 @@ public class ChunkGenerator
 
     //////////////////////////////////////////////////////////////////
 
+    private void copyElement(OmaInputStream in, byte type) throws IOException
+    {
+        ElementWithID e = readMetaData(in,type);
+
+        int chunk = 0;
+
+        if (type=='N')
+        {
+            int lon = in.readInt();
+            int lat = in.readInt();
+            chunk = getFirstChunk(lon,lat);
+            e.writeMetaData(pout[chunk/Oma.max_chunks],features);
+            pout[chunk/Oma.max_chunks].writeInt(lon);
+            pout[chunk/Oma.max_chunks].writeInt(lat);
+        }
+        else if (type=='W')
+        {
+            int naz = in.readSmallInt();
+            int[] lon = new int[naz];
+            int[] lat = new int[naz];
+            for (int i=0;i<naz;i++)
+            {
+                lon[i] = in.readInt();
+                lat[i] = in.readInt();
+                if (lon[i]>=ID_MARKER)
+                    lon[i] = lat[i] = Integer.MAX_VALUE;
+            }
+            chunk = getFirstChunk(lon,lat);
+            e.writeMetaData(pout[chunk/Oma.max_chunks],features);
+            pout[chunk/Oma.max_chunks].writeSmallInt(naz);
+            for (int i=0;i<naz;i++)
+            {
+                pout[chunk/Oma.max_chunks].writeInt(lon[i]);
+                pout[chunk/Oma.max_chunks].writeInt(lat[i]);
+            }
+        }
+        else if (type=='A')
+        {
+            int naz = in.readSmallInt();
+
+            int[] lon = new int[naz];
+            int[] lat = new int[naz];
+            for (int i=0;i<naz;i++)
+            {
+                lon[i] = in.readInt();
+                lat[i] = in.readInt();
+                if (lon[i]>=ID_MARKER)
+                    lon[i] = lat[i] = Integer.MAX_VALUE;
+            }
+
+            int haz = in.readSmallInt();
+            int[][] hlon = new int[haz][];
+            int[][] hlat = new int[haz][];
+            for (int i=0;i<haz;i++)
+            {
+                naz = in.readSmallInt();
+                hlon[i] = new int[naz];
+                hlat[i] = new int[naz];
+                for (int j=0;j<naz;j++)
+                {
+                    hlon[i][j] = in.readInt();
+                    hlat[i][j] = in.readInt();
+                    if (hlon[i][j]>=ID_MARKER)
+                        hlon[i][j] = hlat[i][j] = Integer.MAX_VALUE;
+                }
+            }
+
+            chunk = getFirstChunk(lon,lat,hlon,hlat);
+            e.writeMetaData(pout[chunk/Oma.max_chunks],features);
+            pout[chunk/Oma.max_chunks].writeSmallInt(lon.length);
+            for (int i=0;i<lon.length;i++)
+            {
+                pout[chunk/Oma.max_chunks].writeInt(lon[i]);
+                pout[chunk/Oma.max_chunks].writeInt(lat[i]);
+            }
+            pout[chunk/Oma.max_chunks].writeSmallInt(hlon.length);
+            for (int i=0;i<hlon.length;i++)
+            {
+                pout[chunk/Oma.max_chunks].writeSmallInt(hlon[i].length);
+                for (int j=0;j<hlon[i].length;j++)
+                {
+                    pout[chunk/Oma.max_chunks].writeInt(hlon[i][j]);
+                    pout[chunk/Oma.max_chunks].writeInt(hlat[i][j]);
+                }
+            }
+        }
+        else if (type=='C')
+        {
+            in.readSmallInt();
+
+            chunk = bounds.size();
+            e.writeMetaData(pout[chunk/Oma.max_chunks],features|2);
+            pout[chunk/Oma.max_chunks].writeSmallInt(0);
+        }
+
+        copyTags(in,pout[chunk/Oma.max_chunks]);
+        copyMembers(in,pout[chunk/Oma.max_chunks]);
+    }
+
     private void saveElementToChunk(OmaInputStream in, byte type) throws IOException
+    {
+        saveElementToChunk(in,type,0);
+    }
+
+    private void saveElementToChunk(OmaInputStream in, byte type, int delta) throws IOException
     {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         OmaOutputStream out = new OmaOutputStream(baos);
@@ -266,7 +422,7 @@ public class ChunkGenerator
         {
             int lon = in.readInt();
             int lat = in.readInt();
-            chunk = getFirstChunk(lon,lat);
+            chunk = getFirstChunk(lon,lat)-delta;
             lastx[chunk] = out.delta(lastx[chunk],lon);
             lasty[chunk] = out.delta(lasty[chunk],lat);
         }
@@ -283,7 +439,7 @@ public class ChunkGenerator
                 if (lon[i]>=ID_MARKER)
                     lon[i] = lat[i] = Integer.MAX_VALUE;
             }
-            chunk = getFirstChunk(lon,lat);
+            chunk = getFirstChunk(lon,lat)-delta;
             for (int i=0;i<naz;i++)
             {
                 lastx[chunk] = out.delta(lastx[chunk],lon[i]);
@@ -321,8 +477,7 @@ public class ChunkGenerator
                 }
             }
 
-            chunk = getFirstChunk(lon,lat,hlon,hlat);
-
+            chunk = getFirstChunk(lon,lat,hlon,hlat)-delta;
             out.writeSmallInt(lon.length);
             for (int i=0;i<lon.length;i++)
             {
@@ -345,7 +500,7 @@ public class ChunkGenerator
             in.readSmallInt();
             out.writeSmallInt(0);
 
-            chunk = bounds.size();
+            chunk = bounds.size()-delta;
         }
 
         copyTags(in,out);

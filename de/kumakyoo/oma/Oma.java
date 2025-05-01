@@ -27,6 +27,8 @@ public class Oma
     static boolean zip_chunks = true;
     static boolean one_element = false;
 
+    public static int max_chunks = 500;
+
     static int verbose = 0;
     static boolean silent = false;
 
@@ -153,6 +155,8 @@ public class Oma
         System.err.println("  -1             add each element only once");
         System.err.println("  -v             increase verboseness, can be used up to 4 times");
         System.err.println("  -s             silent mode: do not show any progress");
+        System.err.println("  -c <limit>     maximum number of simultaneously generated chunks;");
+        System.err.println("                 default: 500");
         System.err.println("  -tmp <dir>     directory to use for tmp files; default: default tmp directory");
         System.err.println("  -m <limit>     set amount of spare memory; default: "+Tools.humanReadable(memlimit));
         System.err.println();
@@ -205,6 +209,15 @@ public class Oma
                     if (pos==args.length-1) usage("missing parameter after '-m'");
                     memlimit = Tools.fromHumanReadable(args[pos+1]);
                     if (memlimit<0) usage("invalid memory limit '"+args[pos+1]+"'");
+                    pos++;
+                }
+                else if (args[pos].equals("-c"))
+                {
+                    if (pos==args.length-1) usage("missing parameter after '-c'");
+                    try {
+                        max_chunks = Integer.parseInt(args[pos+1]);
+                    } catch (Exception e) { usage("invalid chunk limit '"+args[pos+1]+"'"); }
+                    if (max_chunks<1) usage("invalid chunk limit '"+args[pos+1]+"'");
                     pos++;
                 }
                 else if (args[pos].equals("--help"))

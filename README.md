@@ -57,6 +57,8 @@ Special handling of restrictions and destination_signs: If `via`,
     -1             add each element only once
     -v             increase verboseness, can be used up to 4 times
     -s             silent mode: do not show any progress
+    -c <limit>     maximum number of simultaneously generated chunks;
+                   default: 500
     -tmp <dir>     directory to use for tmp files; default: default tmp directory
     -m <limit>     set amount of spare memory; default: 100M
 
