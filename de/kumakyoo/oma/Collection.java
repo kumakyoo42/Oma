@@ -9,7 +9,7 @@ public class Collection extends ElementWithID
         in.readSmallInt();
         readTags(in);
         readMembers(in);
-        readMetaData(in,features|2);
+        readMetaData(in,features|4);
     }
 
     public void writeGeo(OmaOutputStream out) throws IOException
@@ -19,6 +19,6 @@ public class Collection extends ElementWithID
 
     public void writeMetaData(OmaOutputStream out, int features) throws IOException
     {
-        super.writeMetaData(out,features|2);
+        super.writeMetaData(out,features|4);
     }
 }

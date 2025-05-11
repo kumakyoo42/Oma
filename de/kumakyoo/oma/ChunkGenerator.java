@@ -202,12 +202,12 @@ public class ChunkGenerator
         out.writeByte('A');
         out.writeByte(Oma.VERSION);
         features = Oma.zip_chunks?1:0;
-        if (Oma.preserve_id) features += 2;
-        if (Oma.preserve_version) features += 4;
-        if (Oma.preserve_timestamp) features += 8;
-        if (Oma.preserve_changeset) features += 16;
-        if (Oma.preserve_user) features += 32;
-        if (Oma.one_element) features += 64;
+        if (Oma.preserve_id) features += 4;
+        if (Oma.preserve_version) features += 8;
+        if (Oma.preserve_timestamp) features += 16;
+        if (Oma.preserve_changeset) features += 32;
+        if (Oma.preserve_user) features += 64;
+        if (Oma.one_element) features += 128;
         out.writeByte(features);
 
         // place holder for bounding box and position of chunktable
@@ -396,7 +396,7 @@ public class ChunkGenerator
             in.readSmallInt();
 
             chunk = bounds.size();
-            e.writeMetaData(pout[chunk/Oma.max_chunks],features|2);
+            e.writeMetaData(pout[chunk/Oma.max_chunks],features|4);
             pout[chunk/Oma.max_chunks].writeSmallInt(0);
         }
 
@@ -505,7 +505,7 @@ public class ChunkGenerator
 
         copyTags(in,out);
         copyMembers(in,out);
-        e.writeMetaData(out,features|(type=='C'?2:0));
+        e.writeMetaData(out,features|(type=='C'?4:0));
 
         baos.writeTo(cout[chunk]);
         count[chunk]++;
@@ -516,15 +516,15 @@ public class ChunkGenerator
     private ElementWithID readMetaData(OmaInputStream in, byte type) throws IOException
     {
         ElementWithID e = new ElementWithID();
-        if ((features&2)!=0 || type=='C')
+        if ((features&4)!=0 || type=='C')
             e.id = in.readLong();
-        if ((features&4)!=0)
-            e.version = in.readSmallInt();
         if ((features&8)!=0)
-            e.timestamp = in.readLong();
+            e.version = in.readSmallInt();
         if ((features&16)!=0)
-            e.changeset = in.readLong();
+            e.timestamp = in.readLong();
         if ((features&32)!=0)
+            e.changeset = in.readLong();
+        if ((features&64)!=0)
         {
             e.uid = in.readInt();
             e.user = in.readString();

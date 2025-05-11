@@ -154,15 +154,15 @@ public class ElementWithID extends Element
 
     public void readMetaData(OmaInputStream in, int features) throws IOException
     {
-        if ((features&2)!=0)
-            id = in.readLong();
         if ((features&4)!=0)
-            version = in.readSmallInt();
+            id = in.readLong();
         if ((features&8)!=0)
-            timestamp = in.readLong();
+            version = in.readSmallInt();
         if ((features&16)!=0)
-            changeset = in.readLong();
+            timestamp = in.readLong();
         if ((features&32)!=0)
+            changeset = in.readLong();
+        if ((features&64)!=0)
         {
             uid = in.readInt();
             user = in.readString();
@@ -171,15 +171,15 @@ public class ElementWithID extends Element
 
     public void writeMetaData(OmaOutputStream out, int features) throws IOException
     {
-        if ((features&2)!=0)
-            out.writeLong(id);
         if ((features&4)!=0)
-            out.writeSmallInt(version);
+            out.writeLong(id);
         if ((features&8)!=0)
-            out.writeLong(timestamp);
+            out.writeSmallInt(version);
         if ((features&16)!=0)
-            out.writeLong(changeset);
+            out.writeLong(timestamp);
         if ((features&32)!=0)
+            out.writeLong(changeset);
+        if ((features&64)!=0)
         {
             out.writeInt(uid);
             out.writeString(user);
