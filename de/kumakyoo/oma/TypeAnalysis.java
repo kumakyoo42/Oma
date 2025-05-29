@@ -424,8 +424,7 @@ public class TypeAnalysis
                     {
                         ((Way)e).write(splitout,features);
                         splitcount++;
-                        if (Oma.one_element) break outer;
-                        break;
+                        break outer;
                     }
 
                     if (k>0)
