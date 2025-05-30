@@ -414,6 +414,7 @@ public class TypeAnalysis
 
         ElementWithID e = type=='N'?new Node(in,features):(type=='C'?new Collection(in,features):(type=='W'?new Way(in,features):(type=='A'?new Area(in,features):new Collection(in,features))));
 
+        boolean firstway = true;
         outer: for (int j=0;j<keys.length;j++)
             for (int k=0;k<lifeCyclePrefixes.length;k++)
                 if (e.tags.containsKey(lcpkey[j][k]))
@@ -422,9 +423,14 @@ public class TypeAnalysis
 
                     if (split && !isArea((Way)e,j))
                     {
-                        ((Way)e).write(splitout,features);
-                        splitcount++;
-                        break outer;
+                        if (firstway)
+                        {
+                            ((Way)e).write(splitout,features);
+                            splitcount++;
+                            firstway = false;
+                        }
+                        if (Oma.one_element) break outer;
+                        break;
                     }
 
                     if (k>0)
@@ -443,8 +449,11 @@ public class TypeAnalysis
         {
             if (split && !isArea((Way)e,-1))
             {
-                ((Way)e).write(splitout,features);
-                splitcount++;
+                if (firstway)
+                {
+                    ((Way)e).write(splitout,features);
+                    splitcount++;
+                }
             }
             else
             {
