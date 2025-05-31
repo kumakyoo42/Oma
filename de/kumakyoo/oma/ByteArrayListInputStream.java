@@ -10,12 +10,19 @@ public class ByteArrayListInputStream extends InputStream
     List<byte[]> list;
     long max;
     long pos;
+    int id;
 
-    public ByteArrayListInputStream(List<byte[]> list, long max)
+    public ByteArrayListInputStream(List<byte[]> list, long max, int id)
     {
         this.list = list;
         this.max = max;
+        this.id = id;
         pos = 0;
+    }
+
+    public void release()
+    {
+        ByteArrayListOutputStream.freeArrays(id);
     }
 
     public int read()

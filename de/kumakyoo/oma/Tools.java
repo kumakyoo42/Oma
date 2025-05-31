@@ -100,6 +100,33 @@ public class Tools
         Files.delete(tmpDir);
     }
 
+    static void allocateByteArrays()
+    {
+        allocateByteArrays(-1);
+    }
+
+    static void allocateByteArrays(long use)
+    {
+        long available = Tools.memavail();
+        long useable = (available-Oma.memlimit)/10*9;
+        if (use!=-1 && use<useable) useable = use;
+        int count = (int)(useable/ByteArrayListOutputStream.MAX_ARRAY);
+
+        if (Oma.verbose>=3)
+        {
+            System.out.println("      Available memory: "+Tools.humanReadable(available));
+            System.out.println("      Using "+count+" byte arrays");
+        }
+
+        ByteArrayListOutputStream.malloc(count);
+    }
+
+    static void releaseByteArrays()
+    {
+        ByteArrayListOutputStream.mfree();
+        gc();
+    }
+
     static void gc()
     {
         System.gc();

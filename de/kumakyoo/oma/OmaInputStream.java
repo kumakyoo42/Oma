@@ -16,7 +16,7 @@ public class OmaInputStream extends DataInputStream
     // a normal constructor. We use static init methods instead.
     public static OmaInputStream init(OmaOutputStream out) throws IOException
     {
-        PositionInputStream in = new PositionInputStream(out.out);
+        PositionInputStream in = new PositionInputStream(out.getStream());
         OmaInputStream s = new OmaInputStream(in);
 
         s.in = in;

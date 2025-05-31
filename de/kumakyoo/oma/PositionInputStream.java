@@ -53,6 +53,8 @@ public class PositionInputStream extends InputStream
             System.out.println("        Releasing '"+filename+"'.");
 
         in.close();
+        if (!fromDisk)
+            balis.release();
         balis = null;
         if (fromDisk)
             Files.delete(filename);

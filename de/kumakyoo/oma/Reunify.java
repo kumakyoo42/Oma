@@ -70,6 +70,7 @@ public class Reunify
     public OmaOutputStream process() throws IOException
     {
         allocateMemory(true);
+        Tools.allocateByteArrays();
         readFile();
         updateNodes();
         releaseMemory();
@@ -86,6 +87,8 @@ public class Reunify
         }
         addMembers();
         out.close();
+
+        Tools.releaseByteArrays();
 
         return out;
     }

@@ -59,13 +59,11 @@ public class PositionOutputStream extends OutputStream
         if (toDisk)
             Files.delete(filename);
         filename = null;
-        if (Tools.memavail()<5*Oma.memlimit)
-            Tools.gc();
     }
 
     public void write(int b) throws IOException
     {
-        if (!toDisk && Tools.memavail()<Oma.memlimit)
+        if (!toDisk && balos.getAvailableMemory()<1)
             freeSomeMemory();
 
         if (toDisk)
@@ -76,8 +74,9 @@ public class PositionOutputStream extends OutputStream
 
     public void write(byte[] b, int off, int len) throws IOException
     {
-        if (!toDisk && Tools.memavail()<Oma.memlimit)
-            freeSomeMemory();
+        while (!toDisk && balos.getAvailableMemory()<len)
+            if (!freeSomeMemory())
+                break;
 
         if (toDisk)
             bos.write(b,off,len);
@@ -89,6 +88,8 @@ public class PositionOutputStream extends OutputStream
     {
         if (toDisk)
             bos.close();
+        else
+            balos.close();
         pos.remove(this);
     }
 
@@ -150,10 +151,10 @@ public class PositionOutputStream extends OutputStream
         filename = neu;
     }
 
-    public static boolean freeSomeMemory() throws IOException
+    private static boolean freeSomeMemory() throws IOException
     {
         int best = -1;
-        long bestlength = 0;
+        long bestlength = -1;
 
         for (int i=0;i<pos.size();i++)
         {
@@ -177,7 +178,7 @@ public class PositionOutputStream extends OutputStream
         return best>=0;
     }
 
-    public void switchToDisk() throws IOException
+    private void switchToDisk() throws IOException
     {
         if (toDisk) return;
 
@@ -189,6 +190,7 @@ public class PositionOutputStream extends OutputStream
         bos = new BufferedOutputStream(fos);
 
         balos.writeTo(bos);
+        balos.release();
         balos = null;
 
         toDisk = true;

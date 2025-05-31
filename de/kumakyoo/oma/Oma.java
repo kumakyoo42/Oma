@@ -27,7 +27,7 @@ public class Oma
     static boolean zip_chunks = true;
     static boolean one_element = false;
 
-    public static int max_chunks = 500;
+    public static int max_chunks = 1000;
 
     static int verbose = 0;
     static boolean silent = false;
@@ -156,7 +156,7 @@ public class Oma
         System.err.println("  -v             increase verboseness, can be used up to 4 times");
         System.err.println("  -s             silent mode: do not show any progress");
         System.err.println("  -c <limit>     maximum number of simultaneously generated chunks;");
-        System.err.println("                 default: 500");
+        System.err.println("                 default: 1000");
         System.err.println("  -tmp <dir>     directory to use for tmp files; default: default tmp directory");
         System.err.println("  -m <limit>     set amount of spare memory; default: "+Tools.humanReadable(memlimit));
         System.err.println();

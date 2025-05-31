@@ -57,7 +57,9 @@ public class TypeAnalysis
     public void process() throws IOException
     {
         readTypes();
+        Tools.allocateByteArrays(200000000L);
         reorganizeChunks();
+        Tools.releaseByteArrays();
     }
 
     //////////////////////////////////////////////////////////////////
@@ -360,6 +362,7 @@ public class TypeAnalysis
     {
         in.setPosition(c.start);
         analyseChunkOfType(in,c.type,c.type=='W',in.readInt(),c.bounds);
+        Tools.gc();
     }
 
     private void analyseChunkOfType(OmaInputStream in, byte type, boolean split, int count, Bounds b) throws IOException
@@ -395,7 +398,6 @@ public class TypeAnalysis
 
     private void analyseWays(Bounds b) throws IOException
     {
-        splitout.close();
         OmaInputStream splitin = OmaInputStream.init(splitout);
         analyseChunkOfType(splitin,(byte)'W',false,splitcount,b);
         splitin.release();
@@ -463,10 +465,8 @@ public class TypeAnalysis
         }
 
         int c = 0;
-        while (Tools.memavail()<Oma.memlimit)
+        if (Tools.memavail()<Oma.memlimit)
         {
-            if (++c<5 && PositionOutputStream.freeSomeMemory()) continue;
-
             if (Oma.verbose>=3)
                 System.out.println("      Memory low. Splitting chunk.");
 

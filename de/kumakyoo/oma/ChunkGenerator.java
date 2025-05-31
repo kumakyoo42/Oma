@@ -42,7 +42,9 @@ public class ChunkGenerator
     public OmaOutputStream process() throws IOException
     {
         readBounds();
+        Tools.allocateByteArrays();
         splitIntoChunks();
+        Tools.releaseByteArrays();
         return out;
     }
 
@@ -107,8 +109,6 @@ public class ChunkGenerator
         if (bounds.size()>=Oma.max_chunks && Oma.verbose>=3)
             System.out.println("    Too many chunks (>"+Oma.max_chunks+"). Using two-level splitting.");
 
-        initGlobalData();
-
         long saved = 0;
         long fs = infile.fileSize();
         OmaInputStream in = OmaInputStream.init(infile);
@@ -126,7 +126,7 @@ public class ChunkGenerator
                 type = in.readByte();
             } catch (EOFException e) { break; }
 
-            if (type!=last)
+            if (type!=last && type!='B')
             {
                 saved = in.getPosition();
                 handleType(last);
@@ -177,9 +177,7 @@ public class ChunkGenerator
                 for (int i=0;i<Oma.max_chunks;i++)
                     cout[i] = OmaOutputStream.init(Tools.tmpFile("chunk"+(Oma.max_chunks*p+i)));
 
-                pout[p].close();
                 OmaInputStream in = OmaInputStream.init(pout[p]);
-
                 while (true)
                     try {
                         saveElementToChunk(in,type,p*Oma.max_chunks);
@@ -254,7 +252,8 @@ public class ChunkGenerator
                     System.err.print("Step 2: saving chunk "+(i+1)+"/"+cout.length+"    \r");
                 saveChunk(i,delta,type);
             }
-            cout[i].release();
+            else
+                cout[i].release();
         }
         if (!Oma.silent)
             System.err.print("Step 2:                                                                      \r");
@@ -269,13 +268,10 @@ public class ChunkGenerator
         lastx[i] = 0;
         lasty[i] = 0;
         count[i] = 0;
-        cout[i] = OmaOutputStream.init(Tools.tmpFile("chunk"+i));
     }
 
     private void copyChunk(int i, int delta, byte type) throws IOException
     {
-        cout[i].close();
-
         long start = out.getPosition();
         out.writeInt(0);
         addChunk(cout[i]);
@@ -287,8 +283,6 @@ public class ChunkGenerator
 
         Bounds b = i+delta<bounds.size()?bounds.get(i+delta):Bounds.getNoBounds();
         chunktable.add(new Chunk(start,type,b));
-
-        cout[i].release();
     }
 
     private void addChunk(OmaOutputStream p) throws IOException
@@ -300,7 +294,7 @@ public class ChunkGenerator
             if (size==-1) break;
             out.write(buffer,0,size);
         }
-        in.close();
+        in.release();
     }
 
     //////////////////////////////////////////////////////////////////

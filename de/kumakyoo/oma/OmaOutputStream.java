@@ -7,7 +7,7 @@ import java.nio.file.Path;
 
 public class OmaOutputStream extends DataOutputStream
 {
-    PositionOutputStream out;
+    private PositionOutputStream out;
 
     private int lastx;
     private int lasty;
@@ -34,9 +34,20 @@ public class OmaOutputStream extends DataOutputStream
         resetDelta();
     }
 
+    public void close() throws IOException
+    {
+        out.close();
+    }
+
     public void release() throws IOException
     {
         out.release();
+    }
+
+    public PositionOutputStream getStream() throws IOException
+    {
+        close();
+        return out;
     }
 
     //////////////////////////////////////////////////////////////////
