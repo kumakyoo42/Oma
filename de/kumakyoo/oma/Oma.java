@@ -8,7 +8,7 @@ import java.nio.file.Path;
 
 public class Oma
 {
-    static final byte VERSION = 0;
+    static final byte VERSION = 1;
 
     private static Path infile;
     private static Path outfile;

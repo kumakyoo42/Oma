@@ -241,7 +241,9 @@ public class TypeAnalysis
 
         in = OmaInputStream.init(infile);
         copyHeader();
+        addCompressionHeader();
         addTypeHeader();
+        out.writeByte(0); // End of Header
         readChunkTable();
         convertChunks();
         in.release();
@@ -283,8 +285,30 @@ public class TypeAnalysis
         out.writeLong(0);
     }
 
+    private void addCompressionHeader() throws IOException
+    {
+        if (Oma.zip_chunks)
+        {
+            out.writeByte('c');
+            out.writeInt((int)out.getPosition()+12);
+            out.writeString("DEFLATE");
+        }
+        else
+        {
+            out.writeByte('c');
+            out.writeInt((int)out.getPosition()+9);
+            out.writeString("NONE");
+        }
+    }
+
     private void addTypeHeader() throws IOException
     {
+        out.writeByte((byte)('t'+(Oma.zip_chunks?128:0)));
+        long pos = out.getPosition();
+        out.writeInt(0); // place holder for length of header
+        if (Oma.zip_chunks)
+            out.writeInt(0); // place holder for length of compressed part
+
         OmaOutputStream orig = out;
 
         DeflaterOutputStream dos = null;
@@ -343,6 +367,13 @@ public class TypeAnalysis
             dos.finish();
             out = orig;
         }
+
+        long npos = out.getPosition();
+        out.setPosition(pos);
+        out.writeInt((int)npos);
+        if (Oma.zip_chunks)
+            out.writeInt((int)(npos-pos-8));
+        out.setPosition(npos);
     }
 
     private void readChunkTable() throws IOException
@@ -608,6 +639,9 @@ public class TypeAnalysis
     private void writeSlice(List<ElementWithID> block, String key, String value) throws IOException
     {
         out.writeInt(block.size());
+        long pos = out.getPosition();
+        if (Oma.zip_chunks)
+            out.writeInt(0);
 
         OmaOutputStream orig = out;
 
@@ -631,6 +665,11 @@ public class TypeAnalysis
             bos.flush();
             dos.finish();
             out = orig;
+
+            long npos = out.getPosition();
+            out.setPosition(pos);
+            out.writeInt((int)(npos-pos-4));
+            out.setPosition(npos);
         }
     }
 
