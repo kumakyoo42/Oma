@@ -71,6 +71,20 @@ need probably only one of them: `-Xmx<size>` to increase the amount of
 memory that can be used by the virtual machine. For example: Adding
 `-Xmx3G` enables the use of up to 3 giga bytes of main memory.
 
+### Troubleshooting
+
+Typically the most problematic thing about Oma is memory shortage. To
+avoid problems, you should use the `-Xmx` option of the Java Virtual
+Machine as explained above.
+
+When using Debian: With Debian "Trixie" the tmp directory is kept in
+memory as a default. As Oma uses the temporary files, because the data
+does not fit into memory, this doesn't work out well. In this
+situation, you can either use a different directory for temporary
+files using the command switch `-tmp` or you can disable this feature
+with the command `systemctl mask tmp.mount` as root user and a restart
+of the computer.
+
 ## Build
 
 On Linux systems you can use the shell script `build.sh` to build
